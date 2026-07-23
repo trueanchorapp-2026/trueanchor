@@ -21,7 +21,7 @@ brief and architecture rules.
 - Role-aware navigation, responsive between a rail and a bottom bar
 
 Out of scope for V1: Google OAuth, devotionals, events, messaging, progress
-tracking, milestones, notifications, offline sync, avatar upload. Will tackle in another session.
+tracking, milestones, notifications, offline sync, avatar upload.
 
 ## The privacy boundary
 
