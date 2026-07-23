@@ -1,0 +1,30 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "TrueAnchor (web)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "deviceId": "chrome",
+      "args": [
+        "--web-port=5000",
+        "--dart-define=SUPABASE_URL=https://vilevuoyzfkzcybgoixd.supabase.co",
+        "--dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_UcpyijWXcIs0tMOofu_UzA_2JRXZqU-"
+      ]
+    },
+    {
+      "name": "TrueAnchor (web, profile mode)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "profile",
+      "program": "lib/main.dart",
+      "deviceId": "chrome",
+      "args": [
+        "--web-port=5000",
+        "--dart-define=SUPABASE_URL=https://vilevuoyzfkzcybgoixd.supabase.co",
+        "--dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_UcpyijWXcIs0tMOofu_UzA_2JRXZqU-"
+      ]
+    }
+  ]
+}
