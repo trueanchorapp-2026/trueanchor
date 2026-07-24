@@ -2,31 +2,50 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/auth/presentation/complete_signup_page.dart';
 import '../../features/auth/presentation/sign_in_page.dart';
 import '../../features/auth/presentation/sign_up_page.dart';
 import '../../features/auth/presentation/splash_page.dart';
 import '../../features/church/presentation/church_page.dart';
+import '../../features/events/domain/event.dart';
+import '../../features/events/presentation/event_editor_page.dart';
+import '../../features/events/presentation/event_list_page.dart';
 import '../../features/family/presentation/family_page.dart';
 import '../../features/family/presentation/family_setup_page.dart';
 import '../../features/home/presentation/home_shell.dart';
 import '../../features/journal/presentation/journal_editor_page.dart';
 import '../../features/journal/presentation/journal_list_page.dart';
+import '../../features/milestones/presentation/milestone_editor_page.dart';
+import '../../features/milestones/presentation/milestone_list_page.dart';
 import '../../features/profile/application/profile_providers.dart';
 import '../../features/profile/domain/user_role.dart';
 import '../../features/profile/presentation/edit_profile_page.dart';
 import '../../features/profile/presentation/profile_page.dart';
+import '../providers/supabase_providers.dart';
 
 abstract final class Routes {
   static const splash = '/splash';
   static const signIn = '/sign-in';
   static const signUp = '/sign-up';
+  static const completeSignup = '/complete-signup';
   static const familySetup = '/family-setup';
   static const journal = '/journal';
   static const journalNew = '/journal/new';
+  static const journalEdit = '/journal/:id/edit';
+  static const editMember = '/family/member/:id/edit';
+  static const events = '/events';
+  static const eventEditor = '/events/editor';
+  static const milestones = '/milestones';
+  static const milestoneNew = '/milestones/new';
   static const family = '/family';
   static const church = '/church';
   static const profile = '/profile';
   static const editProfile = '/profile/edit';
+
+  static String journalEditFor(String entryId) => '/journal/$entryId/edit';
+
+  static String editMemberFor(String memberId) =>
+      '/family/member/$memberId/edit';
 }
 
 /// Bridges Riverpod to go_router: any change to the current profile (which
@@ -68,6 +87,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       final profile = profileState.value;
 
       if (profile == null) {
+        // A session with no profile is the OAuth path: the user authenticated
+        // through Google but has not claimed a church code yet. Send them to
+        // finish signup rather than back to the sign-in screen.
+        final signedIn = ref.read(currentUserIdProvider) != null;
+        if (signedIn) {
+          return location == Routes.completeSignup
+              ? null
+              : Routes.completeSignup;
+        }
         return onAuthPage ? null : Routes.signIn;
       }
 
@@ -80,6 +108,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Signed in and set up: bounce away from the entry pages.
       if (onAuthPage ||
           location == Routes.splash ||
+          location == Routes.completeSignup ||
           location == Routes.familySetup) {
         return _homeFor(profile.role);
       }
@@ -106,12 +135,39 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const SignUpPage(),
       ),
       GoRoute(
+        path: Routes.completeSignup,
+        builder: (context, state) => const CompleteSignUpPage(),
+      ),
+      GoRoute(
         path: Routes.familySetup,
         builder: (context, state) => const FamilySetupPage(),
       ),
       GoRoute(
         path: Routes.journalNew,
         builder: (context, state) => const JournalEditorPage(),
+      ),
+      GoRoute(
+        path: Routes.journalEdit,
+        builder: (context, state) =>
+            JournalEditorPage(entryId: state.pathParameters['id']),
+      ),
+      GoRoute(
+        path: Routes.editMember,
+        // Editing someone else's profile. The page re-checks that the target
+        // really is in the caller's household, and RLS refuses regardless.
+        builder: (context, state) =>
+            EditProfilePage(memberId: state.pathParameters['id']),
+      ),
+      GoRoute(
+        path: Routes.eventEditor,
+        // A non-null Event means edit; null means create. Staff-only; the FAB
+        // and edit affordances that reach here are already role-gated.
+        builder: (context, state) =>
+            EventEditorPage(event: state.extra as Event?),
+      ),
+      GoRoute(
+        path: Routes.milestoneNew,
+        builder: (context, state) => const MilestoneEditorPage(),
       ),
       GoRoute(
         path: Routes.editProfile,
@@ -124,6 +180,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.journal,
             builder: (context, state) => const JournalListPage(),
+          ),
+          GoRoute(
+            path: Routes.events,
+            builder: (context, state) => const EventListPage(),
+          ),
+          GoRoute(
+            path: Routes.milestones,
+            builder: (context, state) => const MilestoneListPage(),
           ),
           GoRoute(
             path: Routes.family,

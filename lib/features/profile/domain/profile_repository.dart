@@ -12,6 +12,10 @@ abstract interface class ProfileRepository {
   /// shared journal entries.
   Future<List<Profile>> fetchFamilyMembers(String familyId);
 
+  /// Everyone in a church. RLS only returns rows to church staff, so this is
+  /// used by staff-only flows (e.g. picking a youth to record a milestone for).
+  Future<List<Profile>> fetchChurchMembers(String churchId);
+
   /// Labels a member of the caller's household, which also decides whether the
   /// app treats them as an adult or as youth. Server-side RPC: it refuses
   /// anyone who is not the head of that household, and cannot reach church

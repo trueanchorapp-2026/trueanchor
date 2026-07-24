@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../../auth/presentation/auth_form_fields.dart';
-import '../../auth/presentation/sign_up_page.dart' show UpperCaseFormatter;
+import '../../auth/presentation/invite_code_field.dart' show UpperCaseFormatter;
 import '../../profile/domain/user_role.dart';
 import '../application/church_providers.dart';
 import '../domain/church.dart';

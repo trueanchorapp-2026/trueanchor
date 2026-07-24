@@ -50,6 +50,21 @@ class AuthController extends AsyncNotifier<void> {
         ),
       );
 
+  Future<void> signInWithGoogle() => _repo.signInWithGoogle();
+
+  Future<bool> claimInvite({
+    required String firstName,
+    required String lastName,
+    required String code,
+  }) =>
+      _run(
+        () => _repo.claimInvite(
+          firstName: firstName,
+          lastName: lastName,
+          code: code,
+        ),
+      );
+
   Future<bool> signOut() => _run(() => _repo.signOut());
 
   /// Returns whether the action succeeded, so callers can decide about

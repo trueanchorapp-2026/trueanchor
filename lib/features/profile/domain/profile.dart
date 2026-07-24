@@ -89,6 +89,11 @@ class Profile {
 
   bool get hasFamily => familyId != null;
 
+  /// Whether the household treats this member as an adult. The family label
+  /// wins when set; the permission role is the fallback for church staff and
+  /// for anyone who signed up before family roles existed.
+  bool get isHouseholdAdult => familyRole?.isAdult ?? role != UserRole.youth;
+
   /// How to describe this person inside their household. Falls back to the
   /// permission role for church staff, and for anyone who signed up before
   /// family roles existed.

@@ -6,12 +6,23 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../../auth/presentation/auth_form_fields.dart';
+import '../../milestones/application/milestone_providers.dart';
 import '../application/profile_providers.dart';
 import '../domain/profile.dart';
 import '../domain/user_role.dart';
 
+/// Edits the signed-in user's own profile, or — when [memberId] is set — a
+/// youth in their household, who may be too young to keep it up themselves.
+///
+/// Which of those it is only changes where the row comes from and where it is
+/// written back. The permission question is settled by RLS
+/// (`profiles_update_family_youth`), not here.
 class EditProfilePage extends ConsumerStatefulWidget {
-  const EditProfilePage({super.key});
+  const EditProfilePage({this.memberId, super.key});
+
+  final String? memberId;
+
+  bool get isEditingSelf => memberId == null;
 
   @override
   ConsumerState<EditProfilePage> createState() => _EditProfilePageState();
@@ -81,7 +92,17 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
     );
 
     try {
-      await ref.read(currentProfileProvider.notifier).save(updated);
+      if (widget.isEditingSelf) {
+        await ref.read(currentProfileProvider.notifier).save(updated);
+      } else {
+        await ref.read(householdMemberEditorProvider.notifier).save(updated);
+      }
+      // Saving baptism makes the database log a matching milestone (see
+      // `sync_baptism_milestone`), so a cached list is now behind the server.
+      if (original.baptized != updated.baptized ||
+          original.baptizedOn != updated.baptizedOn) {
+        ref.invalidate(milestoneListProvider);
+      }
       if (mounted) {
         showAppSnack(context, 'Profile saved.');
         context.pop();
@@ -110,13 +131,35 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
     if (picked != null) onPicked(picked);
   }
 
+  /// The row being edited: the caller's own, or the household member named in
+  /// the route. A member id that matches nobody in the household resolves to
+  /// null and is reported as not found.
+  AsyncValue<Profile?> _target() {
+    final memberId = widget.memberId;
+    if (memberId == null) return ref.watch(currentProfileProvider);
+
+    return ref.watch(familyMembersProvider).whenData((members) {
+      for (final member in members) {
+        if (member.id == memberId) return member;
+      }
+      return null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final profileState = ref.watch(currentProfileProvider);
+    final profileState = _target();
+    final name = profileState.value?.firstName;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Edit profile'),
+        title: Text(
+          switch ((widget.isEditingSelf, name)) {
+            (true, _) => 'Edit profile',
+            (false, final String n) when n.isNotEmpty => "$n's details",
+            (false, _) => 'Edit details',
+          },
+        ),
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: _saving ? null : () => context.pop(),
@@ -126,9 +169,14 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
         value: profileState,
         builder: (profile) {
           if (profile == null) {
-            return const EmptyState(
+            return EmptyState(
               icon: Icons.person_off_outlined,
-              title: 'No profile to edit',
+              title: widget.isEditingSelf
+                  ? 'No profile to edit'
+                  : 'Member not found',
+              message: widget.isEditingSelf
+                  ? null
+                  : 'They may have left your household.',
             );
           }
           _hydrate(profile);
@@ -142,14 +190,14 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                   controller: _firstName,
                   label: 'First name',
                   enabled: !_saving,
-                  emptyMessage: 'Enter your first name.',
+                  emptyMessage: 'Enter a first name.',
                 ),
                 const SizedBox(height: AppTheme.space4),
                 RequiredTextField(
                   controller: _lastName,
                   label: 'Last name',
                   enabled: !_saving,
-                  emptyMessage: 'Enter your last name.',
+                  emptyMessage: 'Enter a last name.',
                 ),
                 const SizedBox(height: AppTheme.space4),
                 TextFormField(
@@ -172,7 +220,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                     label: 'Birth date',
                     value: _birthDate,
                     enabled: !_saving,
-                    helper: 'Used to show your age. Your age is never stored.',
+                    helper: 'Used to show age. The age itself is never stored.',
                     onTap: () => _pickDate(
                       initial: _birthDate,
                       onPicked: (date) => setState(() => _birthDate = date),

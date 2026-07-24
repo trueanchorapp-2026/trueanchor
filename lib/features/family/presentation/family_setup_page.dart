@@ -5,7 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../../auth/application/auth_providers.dart';
 import '../../auth/presentation/auth_form_fields.dart';
-import '../../auth/presentation/sign_up_page.dart' show UpperCaseFormatter;
+import '../../auth/presentation/invite_code_field.dart' show UpperCaseFormatter;
 import '../../profile/application/profile_providers.dart';
 import '../../profile/domain/user_role.dart';
 import '../application/family_providers.dart';

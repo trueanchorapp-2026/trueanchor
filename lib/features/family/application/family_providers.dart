@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/supabase_providers.dart';
 import '../../profile/application/profile_providers.dart';
 import '../../profile/domain/family_role.dart';
+import '../../profile/domain/profile.dart';
 import '../domain/family.dart';
 import '../domain/family_repository.dart';
+import '../domain/member_order.dart';
 import '../infrastructure/supabase_family_repository.dart';
 
 final familyRepositoryProvider = Provider<FamilyRepository>(
@@ -17,6 +19,20 @@ final currentFamilyProvider = FutureProvider<Family?>((ref) async {
   final familyId = profile?.familyId;
   if (familyId == null) return null;
   return ref.watch(familyRepositoryProvider).fetchById(familyId);
+});
+
+/// The household in display order — head first, then adults, then youth.
+///
+/// Lives here rather than alongside [familyMembersProvider] because the head
+/// of household is a column on `families`, which the profile feature does not
+/// (and must not) depend on.
+final sortedFamilyMembersProvider = FutureProvider<List<Profile>>((ref) async {
+  final members = await ref.watch(familyMembersProvider.future);
+  final family = await ref.watch(currentFamilyProvider.future);
+  return sortHouseholdMembers(
+    members,
+    headOfHouseholdId: family?.headOfHouseholdId,
+  );
 });
 
 /// Drives the family setup screen's two actions.

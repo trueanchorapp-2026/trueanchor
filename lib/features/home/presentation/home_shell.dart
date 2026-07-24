@@ -27,6 +27,18 @@ const _journal = _Destination(
   icon: Icons.menu_book_outlined,
   selectedIcon: Icons.menu_book,
 );
+const _events = _Destination(
+  route: Routes.events,
+  label: 'Events',
+  icon: Icons.event_outlined,
+  selectedIcon: Icons.event,
+);
+const _milestones = _Destination(
+  route: Routes.milestones,
+  label: 'Milestones',
+  icon: Icons.emoji_events_outlined,
+  selectedIcon: Icons.emoji_events,
+);
 const _family = _Destination(
   route: Routes.family,
   label: 'Family',
@@ -57,9 +69,9 @@ class HomeShell extends ConsumerWidget {
   List<_Destination> _destinationsFor(UserRole? role) {
     // Church staff have no household and no journal of their own.
     if (role != null && role.isChurchStaff) {
-      return const [_church, _profile];
+      return const [_church, _events, _milestones, _profile];
     }
-    return const [_journal, _family, _profile];
+    return const [_journal, _events, _milestones, _family, _profile];
   }
 
   @override

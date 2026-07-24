@@ -151,6 +151,135 @@ void main() {
     );
   });
 
+  test('edit replaces the entry in place, keeping list order', () async {
+    when(() => repository.fetchVisible())
+        .thenAnswer((_) async => [_entry('a'), _entry('b'), _entry('c')]);
+    final saved = JournalEntry(
+      id: 'b',
+      authorId: 'user-1',
+      title: 'Rewritten',
+      body: 'New body',
+      entryType: EntryType.prayer,
+      visibility: EntryVisibility.parents,
+      createdAt: DateTime(2026, 7, 20),
+    );
+    when(
+      () => repository.update(
+        entryId: any(named: 'entryId'),
+        title: any(named: 'title'),
+        body: any(named: 'body'),
+        entryType: any(named: 'entryType'),
+        visibility: any(named: 'visibility'),
+      ),
+    ).thenAnswer((_) async => saved);
+
+    final container = containerWith();
+    await container.read(journalListProvider.future);
+
+    await container.read(journalListProvider.notifier).edit(
+          entryId: 'b',
+          title: 'Rewritten',
+          body: 'New body',
+          entryType: EntryType.prayer,
+          visibility: EntryVisibility.parents,
+        );
+
+    final entries = container.read(journalListProvider).value!;
+    // An edit is not a new entry: it must not jump to the top.
+    expect(entries.map((e) => e.id), ['a', 'b', 'c']);
+    expect(entries[1].title, 'Rewritten');
+    expect(entries[1].visibility, EntryVisibility.parents);
+  });
+
+  test('edit can walk a shared entry back to private', () async {
+    when(() => repository.fetchVisible()).thenAnswer(
+      (_) async => [_entry('a', visibility: EntryVisibility.parentsPastor)],
+    );
+    when(
+      () => repository.update(
+        entryId: any(named: 'entryId'),
+        title: any(named: 'title'),
+        body: any(named: 'body'),
+        entryType: any(named: 'entryType'),
+        visibility: any(named: 'visibility'),
+      ),
+    ).thenAnswer((_) async => _entry('a'));
+
+    final container = containerWith();
+    await container.read(journalListProvider.future);
+
+    await container.read(journalListProvider.notifier).edit(
+          entryId: 'a',
+          title: null,
+          body: 'Entry a',
+          entryType: EntryType.journal,
+          visibility: EntryVisibility.private,
+        );
+
+    expect(
+      container.read(journalListProvider).value?.single.visibility,
+      EntryVisibility.private,
+    );
+  });
+
+  test('edit leaves the list untouched when the update fails', () async {
+    when(() => repository.fetchVisible())
+        .thenAnswer((_) async => [_entry('a'), _entry('b')]);
+    when(
+      () => repository.update(
+        entryId: any(named: 'entryId'),
+        title: any(named: 'title'),
+        body: any(named: 'body'),
+        entryType: any(named: 'entryType'),
+        visibility: any(named: 'visibility'),
+      ),
+    ).thenThrow(const AppException('nope'));
+
+    final container = containerWith();
+    await container.read(journalListProvider.future);
+
+    await expectLater(
+      container.read(journalListProvider.notifier).edit(
+            entryId: 'a',
+            title: null,
+            body: 'Changed',
+            entryType: EntryType.journal,
+            visibility: EntryVisibility.private,
+          ),
+      throwsA(isA<AppException>()),
+    );
+    expect(container.read(journalListProvider).value?.first.body, isNot('Changed'));
+    expect(container.read(journalListProvider).value?.length, 2);
+  });
+
+  test('edit ignores an id that is not in the list', () async {
+    when(() => repository.fetchVisible())
+        .thenAnswer((_) async => [_entry('a')]);
+    when(
+      () => repository.update(
+        entryId: any(named: 'entryId'),
+        title: any(named: 'title'),
+        body: any(named: 'body'),
+        entryType: any(named: 'entryType'),
+        visibility: any(named: 'visibility'),
+      ),
+    ).thenAnswer((_) async => _entry('gone'));
+
+    final container = containerWith();
+    await container.read(journalListProvider.future);
+
+    await container.read(journalListProvider.notifier).edit(
+          entryId: 'gone',
+          title: null,
+          body: 'Body',
+          entryType: EntryType.journal,
+          visibility: EntryVisibility.private,
+        );
+
+    // No silent insert: the list still holds exactly what RLS returned.
+    expect(container.read(journalListProvider).value?.map((e) => e.id), ['a']);
+  });
+
   test('remove drops the entry from the list', () async {
     when(() => repository.fetchVisible())
         .thenAnswer((_) async => [_entry('a'), _entry('b')]);

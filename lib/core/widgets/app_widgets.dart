@@ -133,6 +133,95 @@ class EmptyState extends StatelessWidget {
 }
 
 /// CLAUDE.md: "Confirm destructive actions." Returns true only on confirm.
+/// A small pill label. [muted] picks the low-emphasis surface, for facts that
+/// are merely informational; the default carries emphasis, for facts the user
+/// is meant to notice.
+class AppChip extends StatelessWidget {
+  const AppChip({
+    required this.label,
+    this.icon,
+    this.muted = false,
+    super.key,
+  });
+
+  final String label;
+  final IconData? icon;
+  final bool muted;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final background =
+        muted ? scheme.surfaceContainerHighest : scheme.secondaryContainer;
+    final foreground =
+        muted ? scheme.onSurfaceVariant : scheme.onSecondaryContainer;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 13, color: foreground),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(color: foreground),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// An advisory note inside a form — something the user should know before
+/// submitting, but which does not block them. Distinct from [FormErrorBanner],
+/// which reports a failure that already happened.
+class NoticeBanner extends StatelessWidget {
+  const NoticeBanner({
+    required this.message,
+    this.icon = Icons.info_outline,
+    super.key,
+  });
+
+  final String message;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(AppTheme.space3),
+      decoration: BoxDecoration(
+        color: scheme.secondaryContainer,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 20, color: scheme.onSecondaryContainer),
+          const SizedBox(width: AppTheme.space2),
+          Expanded(
+            child: Text(
+              message,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: scheme.onSecondaryContainer),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 Future<bool> confirmDestructive(
   BuildContext context, {
   required String title,
