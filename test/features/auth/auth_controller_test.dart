@@ -105,6 +105,44 @@ void main() {
     });
   });
 
+  group('claimInvite', () {
+    test('forwards the name and code the OAuth user just entered', () async {
+      when(() => repository.claimInvite(
+            firstName: any(named: 'firstName'),
+            lastName: any(named: 'lastName'),
+            code: any(named: 'code'),
+          )).thenAnswer((_) async {});
+
+      final ok = await container()
+          .read(authControllerProvider.notifier)
+          .claimInvite(firstName: 'Ella', lastName: 'Nguyen', code: 'TAPARENT');
+
+      expect(ok, isTrue);
+      verify(() => repository.claimInvite(
+            firstName: 'Ella',
+            lastName: 'Nguyen',
+            code: 'TAPARENT',
+          )).called(1);
+    });
+
+    test('a rejected code fails the claim so the page keeps the user here',
+        () async {
+      when(() => repository.claimInvite(
+            firstName: any(named: 'firstName'),
+            lastName: any(named: 'lastName'),
+            code: any(named: 'code'),
+          )).thenThrow(const AppException('That church code is not valid.'));
+
+      final c = container();
+      final ok = await c
+          .read(authControllerProvider.notifier)
+          .claimInvite(firstName: 'Ella', lastName: 'Nguyen', code: 'NOPE');
+
+      expect(ok, isFalse);
+      expect(c.read(authControllerProvider).hasError, isTrue);
+    });
+  });
+
   group('invitePreviewProvider', () {
     test('exposes the church and role a code resolves to', () async {
       when(() => repository.validateInviteCode('TAPARENT')).thenAnswer(

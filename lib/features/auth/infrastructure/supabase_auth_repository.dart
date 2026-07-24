@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/error/app_exception.dart';
@@ -65,6 +66,40 @@ class SupabaseAuthRepository implements AuthRepository {
       await _client.auth.signInWithPassword(
         email: email.trim(),
         password: password,
+      );
+    } catch (error) {
+      throw mapError(error);
+    }
+  }
+
+  @override
+  Future<void> signInWithGoogle() async {
+    try {
+      await _client.auth.signInWithOAuth(
+        OAuthProvider.google,
+        // On web, return to the app's own origin (e.g. http://localhost:5000)
+        // so session restoration and the router take over on redirect back.
+        redirectTo: kIsWeb ? Uri.base.origin : null,
+      );
+    } catch (error) {
+      throw mapError(error);
+    }
+  }
+
+  @override
+  Future<void> claimInvite({
+    required String firstName,
+    required String lastName,
+    required String code,
+  }) async {
+    try {
+      await _client.rpc<dynamic>(
+        'claim_invite',
+        params: {
+          'p_first': firstName.trim(),
+          'p_last': lastName.trim(),
+          'p_code': code.trim().toUpperCase(),
+        },
       );
     } catch (error) {
       throw mapError(error);

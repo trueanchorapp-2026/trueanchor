@@ -28,4 +28,13 @@ enum UserRole {
       this == UserRole.churchAdmin ||
       this == UserRole.youthPastor ||
       this == UserRole.appAdmin;
+
+  /// Who may create and manage church events. Mirrors the `events_insert`
+  /// RLS policy — youth pastors and admins; everyone else is view-only.
+  bool get canManageEvents => isChurchStaff;
+
+  /// Who may record a spiritual milestone for a youth. Mirrors the
+  /// `milestones_insert` RLS policy — a parent (for their own family) or
+  /// church staff. A youth can view their own but never record one.
+  bool get canRecordMilestone => this == UserRole.parent || isChurchStaff;
 }

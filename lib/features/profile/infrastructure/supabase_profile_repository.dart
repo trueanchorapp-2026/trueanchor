@@ -57,6 +57,21 @@ class SupabaseProfileRepository implements ProfileRepository {
   }
 
   @override
+  Future<List<Profile>> fetchChurchMembers(String churchId) async {
+    try {
+      final rows = await _client
+          .from('profiles')
+          .select(_columns)
+          .eq('church_id', churchId)
+          .order('last_name')
+          .order('first_name');
+      return rows.map(Profile.fromJson).toList();
+    } catch (error) {
+      throw mapError(error);
+    }
+  }
+
+  @override
   Future<Profile> setFamilyRole(String memberId, FamilyRole role) async {
     try {
       final row = await _client.rpc<Map<String, dynamic>>(

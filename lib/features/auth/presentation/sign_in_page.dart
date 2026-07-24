@@ -7,6 +7,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../application/auth_providers.dart';
 import 'auth_form_fields.dart';
+import 'google_sign_in_button.dart';
 
 class SignInPage extends ConsumerStatefulWidget {
   const SignInPage({super.key});
@@ -81,6 +82,10 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                   ? const ButtonSpinner()
                   : const Text('Sign in'),
             ),
+            const SizedBox(height: AppTheme.space4),
+            const AuthDivider(),
+            const SizedBox(height: AppTheme.space4),
+            GoogleSignInButton(enabled: !busy),
             const SizedBox(height: AppTheme.space3),
             TextButton(
               onPressed: busy ? null : () => context.go(Routes.signUp),

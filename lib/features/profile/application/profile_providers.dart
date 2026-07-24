@@ -46,6 +46,26 @@ class CurrentProfile extends AsyncNotifier<Profile?> {
 final currentProfileProvider =
     AsyncNotifierProvider<CurrentProfile, Profile?>(CurrentProfile.new);
 
+/// Persists edits an adult makes to a youth in their own household.
+///
+/// Separate from [CurrentProfile.save] because the row written is not the
+/// caller's own: the signed-in session is unchanged, but the member list has
+/// to be re-read. `profiles_update_family_youth` is what actually decides
+/// whether the write lands — this notifier does not re-check permission, it
+/// just reports what the database said.
+class HouseholdMemberEditor extends Notifier<void> {
+  @override
+  void build() {}
+
+  Future<void> save(Profile updated) async {
+    await ref.read(profileRepositoryProvider).update(updated);
+    ref.invalidate(familyMembersProvider);
+  }
+}
+
+final householdMemberEditorProvider =
+    NotifierProvider<HouseholdMemberEditor, void>(HouseholdMemberEditor.new);
+
 /// Members of the signed-in user's family. Empty before family setup.
 final familyMembersProvider = FutureProvider<List<Profile>>((ref) async {
   final profile = await ref.watch(currentProfileProvider.future);

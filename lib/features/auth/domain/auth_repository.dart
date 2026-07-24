@@ -32,5 +32,20 @@ abstract interface class AuthRepository {
 
   Future<void> signIn({required String email, required String password});
 
+  /// Starts the Google OAuth flow. On web this redirects the whole page, so it
+  /// does not resolve to a session here — the app re-initialises on return. A
+  /// new Google user comes back with a session but no profile; [claimInvite]
+  /// then attaches them to a church.
+  Future<void> signInWithGoogle();
+
+  /// Turns a church invite code into the caller's profile row. Used only on the
+  /// OAuth path, where the signup trigger could not create the profile because
+  /// no code was present at sign-in. Fails if a profile already exists.
+  Future<void> claimInvite({
+    required String firstName,
+    required String lastName,
+    required String code,
+  });
+
   Future<void> signOut();
 }

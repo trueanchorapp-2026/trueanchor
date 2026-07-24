@@ -10,6 +10,13 @@ final journalRepositoryProvider = Provider<JournalRepository>(
   (ref) => SupabaseJournalRepository(ref.watch(supabaseClientProvider)),
 );
 
+/// Whether the signed-in user's church has a youth pastor, which decides
+/// whether the "+ pastor" rungs reach anyone at all.
+final churchHasYouthPastorProvider = FutureProvider<bool>((ref) {
+  ref.watch(currentUserIdProvider);
+  return ref.watch(journalRepositoryProvider).churchHasYouthPastor();
+});
+
 /// Every entry the signed-in user may read, newest first.
 class JournalList extends AsyncNotifier<List<JournalEntry>> {
   @override
@@ -46,6 +53,29 @@ class JournalList extends AsyncNotifier<List<JournalEntry>> {
         );
 
     state = AsyncData([created, ...state.value ?? const []]);
+  }
+
+  /// Replaces an entry in place, keeping its position in the list: edits do
+  /// not re-sort a journal, because created_at is what the list orders by.
+  Future<void> edit({
+    required String entryId,
+    required String? title,
+    required String body,
+    required EntryType entryType,
+    required EntryVisibility visibility,
+  }) async {
+    final saved = await ref.read(journalRepositoryProvider).update(
+          entryId: entryId,
+          title: title,
+          body: body,
+          entryType: entryType,
+          visibility: visibility,
+        );
+
+    final current = state.value ?? const <JournalEntry>[];
+    state = AsyncData([
+      for (final entry in current) if (entry.id == saved.id) saved else entry,
+    ]);
   }
 
   Future<void> remove(String entryId) async {

@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../../profile/application/profile_providers.dart';
 import '../../profile/domain/family_role.dart';
 import '../../profile/domain/profile.dart';
-import '../../profile/domain/user_role.dart';
 import '../application/family_providers.dart';
 
 class FamilyPage extends ConsumerWidget {
@@ -28,7 +29,7 @@ class FamilyPage extends ConsumerWidget {
     }
 
     final familyState = ref.watch(currentFamilyProvider);
-    final membersState = ref.watch(familyMembersProvider);
+    final membersState = ref.watch(sortedFamilyMembersProvider);
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -79,6 +80,11 @@ class FamilyPage extends ConsumerWidget {
                         canAssignRoles:
                             profile != null &&
                             family.isHeadOfHousehold(profile.id),
+                        // Any adult in the household may maintain a youth's
+                        // details; profiles_update_family_youth says the same.
+                        canEditDetails: profile != null &&
+                            profile.isHouseholdAdult &&
+                            !member.isHouseholdAdult,
                         onAssign: (role) => _assignRole(
                           context,
                           ref,
@@ -103,7 +109,7 @@ Future<void> _assignRole(
   required Profile member,
   required FamilyRole role,
 }) async {
-  final wasAdult = member.familyRole?.isAdult ?? member.role != UserRole.youth;
+  final wasAdult = member.isHouseholdAdult;
 
   // Crossing the adult/youth line changes what the app will show this person,
   // so it is not a silent relabel.
@@ -186,12 +192,30 @@ class _JoinCodeCard extends StatelessWidget {
   }
 }
 
+/// What the overflow menu on a member tile can do. A sealed type keeps the
+/// two unrelated actions — relabelling someone, and editing their details — in
+/// one menu without collapsing them into a single loosely-typed value.
+sealed class _MemberAction {
+  const _MemberAction();
+}
+
+class _EditDetails extends _MemberAction {
+  const _EditDetails();
+}
+
+class _AssignRole extends _MemberAction {
+  const _AssignRole(this.role);
+
+  final FamilyRole role;
+}
+
 class _MemberTile extends StatelessWidget {
   const _MemberTile({
     required this.member,
     required this.isHead,
     required this.isSelf,
     required this.canAssignRoles,
+    required this.canEditDetails,
     required this.onAssign,
   });
 
@@ -199,6 +223,7 @@ class _MemberTile extends StatelessWidget {
   final bool isHead;
   final bool isSelf;
   final bool canAssignRoles;
+  final bool canEditDetails;
   final ValueChanged<FamilyRole> onAssign;
 
   @override
@@ -213,7 +238,8 @@ class _MemberTile extends StatelessWidget {
 
     // Church staff who share a household keep their church role; a head of
     // household must not be able to edit it (the RPC refuses too).
-    final editable = canAssignRoles && !member.role.isChurchStaff;
+    final canRelabel = canAssignRoles && !member.role.isChurchStaff;
+    final hasMenu = canRelabel || canEditDetails;
 
     return Card(
       margin: const EdgeInsets.only(bottom: AppTheme.space2),
@@ -230,11 +256,11 @@ class _MemberTile extends StatelessWidget {
             Flexible(child: Text(member.fullName)),
             if (isSelf) ...[
               const SizedBox(width: AppTheme.space2),
-              const _Chip(label: 'You'),
+              const AppChip(label:'You'),
             ],
             if (isHead) ...[
               const SizedBox(width: AppTheme.space2),
-              const _Chip(label: 'Head'),
+              const AppChip(label:'Head'),
             ],
           ],
         ),
@@ -248,30 +274,48 @@ class _MemberTile extends StatelessWidget {
                 child: Icon(Icons.water_drop,
                     size: 20, color: theme.colorScheme.primary),
               ),
-            if (editable)
-              PopupMenuButton<FamilyRole>(
-                tooltip: 'Change role',
+            if (hasMenu)
+              PopupMenuButton<_MemberAction>(
+                tooltip: 'Member actions',
                 icon: const Icon(Icons.more_vert),
-                onSelected: onAssign,
+                onSelected: (action) => switch (action) {
+                  _EditDetails() =>
+                    context.push(Routes.editMemberFor(member.id)),
+                  _AssignRole(:final role) => onAssign(role),
+                },
                 itemBuilder: (context) => [
-                  for (final role
-                      in FamilyRole.assignableFor(memberIsHead: isHead))
-                    PopupMenuItem(
-                      value: role,
-                      enabled: role != member.familyRole,
+                  if (canEditDetails)
+                    const PopupMenuItem(
+                      value: _EditDetails(),
                       child: Row(
                         children: [
-                          Icon(
-                            role == member.familyRole
-                                ? Icons.check
-                                : Icons.person_outline,
-                            size: 18,
-                          ),
-                          const SizedBox(width: AppTheme.space2),
-                          Text(role.label),
+                          Icon(Icons.edit_outlined, size: 18),
+                          SizedBox(width: AppTheme.space2),
+                          Text('Edit details'),
                         ],
                       ),
                     ),
+                  if (canEditDetails && canRelabel)
+                    const PopupMenuDivider(),
+                  if (canRelabel)
+                    for (final role
+                        in FamilyRole.assignableFor(memberIsHead: isHead))
+                      PopupMenuItem(
+                        value: _AssignRole(role),
+                        enabled: role != member.familyRole,
+                        child: Row(
+                          children: [
+                            Icon(
+                              role == member.familyRole
+                                  ? Icons.check
+                                  : Icons.person_outline,
+                              size: 18,
+                            ),
+                            const SizedBox(width: AppTheme.space2),
+                            Text(role.label),
+                          ],
+                        ),
+                      ),
                 ],
               ),
           ],
@@ -281,25 +325,3 @@ class _MemberTile extends StatelessWidget {
   }
 }
 
-class _Chip extends StatelessWidget {
-  const _Chip({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.secondaryContainer,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: theme.textTheme.labelSmall
-            ?.copyWith(color: theme.colorScheme.onSecondaryContainer),
-      ),
-    );
-  }
-}

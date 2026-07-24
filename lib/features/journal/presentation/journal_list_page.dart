@@ -40,9 +40,13 @@ class JournalListPage extends ConsumerWidget {
                     child: const EmptyState(
                       icon: Icons.menu_book_outlined,
                       title: 'Nothing here yet',
+                      // Deliberately not "private until you share": that
+                      // stopped being true for parents, whose entries start
+                      // with the other adults in their household.
                       message:
                           'Write your first journal entry or prayer. New '
-                          'entries are private until you choose to share them.',
+                          'entries start at their narrowest setting until '
+                          'you choose to share them further.',
                     ),
                   ),
                 ),
@@ -71,6 +75,8 @@ class JournalListPage extends ConsumerWidget {
     );
   }
 }
+
+enum _EntryAction { edit, delete }
 
 class _EntryCard extends ConsumerWidget {
   const _EntryCard({required this.entry, required this.isMine});
@@ -110,14 +116,19 @@ class _EntryCard extends ConsumerWidget {
           children: [
             Row(
               children: [
-                Icon(
-                  entry.entryType == EntryType.prayer
-                      ? Icons.volunteer_activism_outlined
-                      : Icons.edit_note_outlined,
-                  size: 18,
-                  color: theme.colorScheme.primary,
-                ),
-                const SizedBox(width: AppTheme.space2),
+                // Only private entries are marked. A badge that is always
+                // present says nothing; this one means "no one but you".
+                if (entry.visibility.isPrivate) ...[
+                  Tooltip(
+                    message: 'Private — only you can see this',
+                    child: Icon(
+                      Icons.visibility_off_outlined,
+                      size: 18,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(width: AppTheme.space2),
+                ],
                 Expanded(
                   child: Text(
                     entry.displayTitle,
@@ -127,10 +138,32 @@ class _EntryCard extends ConsumerWidget {
                   ),
                 ),
                 if (isMine)
-                  IconButton(
-                    tooltip: 'Delete entry',
-                    icon: const Icon(Icons.delete_outline, size: 20),
-                    onPressed: () => _delete(context, ref),
+                  PopupMenuButton<_EntryAction>(
+                    tooltip: 'Entry actions',
+                    icon: const Icon(Icons.more_vert, size: 20),
+                    onSelected: (action) => switch (action) {
+                      _EntryAction.edit =>
+                        context.push(Routes.journalEditFor(entry.id)),
+                      _EntryAction.delete => _delete(context, ref),
+                    },
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(
+                        value: _EntryAction.edit,
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(Icons.edit_outlined, size: 20),
+                          title: Text('Edit'),
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: _EntryAction.delete,
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(Icons.delete_outline, size: 20),
+                          title: Text('Delete'),
+                        ),
+                      ),
+                    ],
                   ),
               ],
             ),
@@ -147,18 +180,28 @@ class _EntryCard extends ConsumerWidget {
               runSpacing: AppTheme.space1,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                VisibilityBadge(visibility: entry.visibility),
+                AppChip(label: entry.entryType.label, muted: true),
+                // Authorship is a chip on both sides rather than a chip for
+                // others and nothing for yourself: in a family feed the
+                // question "is this mine?" is asked of every card, and an
+                // absent label answers it only if you already know the rule.
+                // Yours is the unmuted one, so the feed reads at a glance.
+                AppChip(
+                  label: isMine ? 'You' : (entry.authorName ?? 'Someone in your family'),
+                  icon: Icons.person_outline,
+                  muted: !isMine,
+                ),
+                // Private is already shown by the icon beside the title;
+                // repeating it here would be noise. Shared states are spelled
+                // out, because "who exactly can read this" is the one thing
+                // worth being explicit about.
+                if (!entry.visibility.isPrivate)
+                  VisibilityBadge(visibility: entry.visibility),
                 Text(
                   dateLabel,
                   style: theme.textTheme.bodySmall
                       ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                 ),
-                if (!isMine)
-                  Text(
-                    '· shared with you',
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                  ),
               ],
             ),
           ],
@@ -178,37 +221,13 @@ class VisibilityBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final isPrivate = visibility.isPrivate;
-    final background =
-        isPrivate ? scheme.surfaceContainerHighest : scheme.secondaryContainer;
-    final foreground =
-        isPrivate ? scheme.onSurfaceVariant : scheme.onSecondaryContainer;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            isPrivate ? Icons.lock_outline : Icons.group_outlined,
-            size: 13,
-            color: foreground,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            visibility.label,
-            style: Theme.of(context)
-                .textTheme
-                .labelSmall
-                ?.copyWith(color: foreground),
-          ),
-        ],
-      ),
+    return AppChip(
+      label: visibility.label,
+      icon: isPrivate
+          ? Icons.visibility_off_outlined
+          : Icons.group_outlined,
+      muted: isPrivate,
     );
   }
 }
