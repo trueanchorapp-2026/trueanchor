@@ -4,10 +4,18 @@
 /// and Postgres RLS is what actually protects the data. Keeping it out of the
 /// source tree still buys us rotation without a code change.
 abstract final class Env {
-  static const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+  static const String _defaultSupabaseUrl =
+      'https://vilevuoyzfkzcybgoixd.supabase.co';
+  static const String _defaultPublishableKey =
+      'sb_publishable_UcpyijWXcIs0tMOofu_UzA_2JRXZqU-';
 
-  static const supabasePublishableKey =
-      String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
+  static const String supabaseUrl =
+      String.fromEnvironment('SUPABASE_URL', defaultValue: _defaultSupabaseUrl);
+
+  static const String supabasePublishableKey = String.fromEnvironment(
+    'SUPABASE_PUBLISHABLE_KEY',
+    defaultValue: _defaultPublishableKey,
+  );
 
   /// Fails fast at startup rather than surfacing as an opaque 401 on the first
   /// query, which is a much harder thing to diagnose.
