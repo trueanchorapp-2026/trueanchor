@@ -68,9 +68,10 @@ class Milestone {
   /// viewing their own list (where it would just be their own name).
   final String? subjectName;
 
-  /// Recorded by the database from a profile fact rather than typed by a
-  /// person — currently only baptism. Shown so nobody wonders where the row
-  /// came from; the database keeps it in step with the profile.
+  /// Recorded by the database rather than typed by a person: baptism, mirrored
+  /// from the profile, and devotion streaks, mirrored from daily progress.
+  /// Shown so nobody wonders where the row came from; the database keeps these
+  /// in step on its own.
   final bool autoLogged;
 
   /// The line shown as the card heading: a custom title if given, otherwise

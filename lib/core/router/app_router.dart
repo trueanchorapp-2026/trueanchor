@@ -7,6 +7,9 @@ import '../../features/auth/presentation/sign_in_page.dart';
 import '../../features/auth/presentation/sign_up_page.dart';
 import '../../features/auth/presentation/splash_page.dart';
 import '../../features/church/presentation/church_page.dart';
+import '../../features/devotionals/presentation/today_page.dart';
+import '../../features/engagement/presentation/engagement_dashboard_page.dart';
+import '../../features/engagement/presentation/youth_engagement_detail_page.dart';
 import '../../features/events/domain/event.dart';
 import '../../features/events/presentation/event_editor_page.dart';
 import '../../features/events/presentation/event_list_page.dart';
@@ -15,6 +18,8 @@ import '../../features/family/presentation/family_setup_page.dart';
 import '../../features/home/presentation/home_shell.dart';
 import '../../features/journal/presentation/journal_editor_page.dart';
 import '../../features/journal/presentation/journal_list_page.dart';
+import '../../features/messaging/presentation/thread_list_page.dart';
+import '../../features/messaging/presentation/thread_page.dart';
 import '../../features/milestones/presentation/milestone_editor_page.dart';
 import '../../features/milestones/presentation/milestone_list_page.dart';
 import '../../features/profile/application/profile_providers.dart';
@@ -29,20 +34,31 @@ abstract final class Routes {
   static const signUp = '/sign-up';
   static const completeSignup = '/complete-signup';
   static const familySetup = '/family-setup';
+  static const today = '/today';
   static const journal = '/journal';
   static const journalNew = '/journal/new';
   static const journalEdit = '/journal/:id/edit';
   static const editMember = '/family/member/:id/edit';
   static const events = '/events';
   static const eventEditor = '/events/editor';
+  static const messages = '/messages';
+  static const messageThread = '/messages/thread/:id';
   static const milestones = '/milestones';
   static const milestoneNew = '/milestones/new';
   static const family = '/family';
   static const church = '/church';
+  static const dashboard = '/dashboard';
+  static const dashboardYouth = '/dashboard/youth/:id';
   static const profile = '/profile';
   static const editProfile = '/profile/edit';
 
   static String journalEditFor(String entryId) => '/journal/$entryId/edit';
+
+  static String messageThreadFor(String threadId) =>
+      '/messages/thread/$threadId';
+
+  static String dashboardYouthFor(String profileId) =>
+      '/dashboard/youth/$profileId';
 
   static String editMemberFor(String memberId) =>
       '/family/member/$memberId/edit';
@@ -119,6 +135,21 @@ final routerProvider = Provider<GoRouter>((ref) {
         return _homeFor(profile.role);
       }
 
+      // youth_engagement_overview() raises NOT_AUTHORIZED for everyone else,
+      // so this guard is what turns a would-be error screen into a redirect.
+      if (location.startsWith(Routes.dashboard) &&
+          !profile.role.canViewEngagementDashboard) {
+        return _homeFor(profile.role);
+      }
+
+      // Messaging is between a household and its youth pastor. A church admin
+      // reaching /messages would see an empty inbox they can never fill —
+      // `open_thread()` raises ROLE_CANNOT_MESSAGE for them.
+      if (location.startsWith(Routes.messages) &&
+          !profile.role.canUseMessaging) {
+        return _homeFor(profile.role);
+      }
+
       return null;
     },
     routes: [
@@ -173,10 +204,29 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: Routes.editProfile,
         builder: (context, state) => const EditProfilePage(),
       ),
+      GoRoute(
+        // Top-level, like the thread page: a drill-down is a place you go into
+        // and come back from, and it carries its own Message action.
+        path: Routes.dashboardYouth,
+        builder: (context, state) =>
+            YouthEngagementDetailPage(profileId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        // Outside the ShellRoute on purpose: a thread is a place you are in,
+        // and it also keeps `/messages/thread/...` from lighting up the
+        // Messages tab through HomeShell's startsWith match.
+        path: Routes.messageThread,
+        builder: (context, state) =>
+            ThreadPage(threadId: state.pathParameters['id']!),
+      ),
       ShellRoute(
         builder: (context, state, child) =>
             HomeShell(location: state.matchedLocation, child: child),
         routes: [
+          GoRoute(
+            path: Routes.today,
+            builder: (context, state) => const TodayPage(),
+          ),
           GoRoute(
             path: Routes.journal,
             builder: (context, state) => const JournalListPage(),
@@ -184,6 +234,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.events,
             builder: (context, state) => const EventListPage(),
+          ),
+          GoRoute(
+            path: Routes.dashboard,
+            builder: (context, state) => const EngagementDashboardPage(),
+          ),
+          GoRoute(
+            path: Routes.messages,
+            builder: (context, state) => const ThreadListPage(),
           ),
           GoRoute(
             path: Routes.milestones,
@@ -207,7 +265,11 @@ final routerProvider = Provider<GoRouter>((ref) {
   );
 });
 
-/// Church staff have no journal and no household of their own, so they land on
-/// the church directory instead.
-String _homeFor(UserRole role) =>
-    role.isChurchStaff ? Routes.church : Routes.journal;
+/// Members land on the daily devotional — the habit the app exists to build.
+/// A youth pastor lands on the youth who need them, not on the directory.
+/// Everyone else on the church staff lands on the directory.
+String _homeFor(UserRole role) => switch (role) {
+      _ when role.canViewEngagementDashboard => Routes.dashboard,
+      _ when role.isChurchStaff => Routes.church,
+      _ => Routes.today,
+    };

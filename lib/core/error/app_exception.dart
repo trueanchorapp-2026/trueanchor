@@ -58,6 +58,15 @@ const _sentinels = <String, String>{
   'NOT_A_FAMILY_MEMBER': 'That person is not in your household.',
   'CANNOT_CHANGE_STAFF_ROLE':
       'That account belongs to the church, so its role is set by a church admin.',
+  'NO_YOUTH_PASTOR':
+      'Your church has not set up a youth pastor yet, so there is nobody to '
+          'message. Ask your church to add one.',
+  'INVALID_THREAD_PARTICIPANT':
+      'That person is not someone you can message.',
+  'ROLE_CANNOT_MESSAGE':
+      'Messaging is between families and their youth pastor, so this account '
+          'cannot open a conversation.',
+  'NOT_AUTHORIZED': 'You do not have access to that.',
   'HEAD_MUST_BE_AN_ADULT':
       'The head of household cannot be set to youth. Ask your church to move '
           'the household to someone else first.',
