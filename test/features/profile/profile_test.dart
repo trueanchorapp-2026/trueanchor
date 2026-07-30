@@ -159,5 +159,53 @@ void main() {
       expect(UserRole.parent.isChurchStaff, isFalse);
       expect(UserRole.youth.isChurchStaff, isFalse);
     });
+
+    test('only app_admin may author the devotional every church reads', () {
+      // Mirrors devotionals_insert. Devotionals are global content, so a
+      // church-scoped role has no business writing them.
+      expect(UserRole.appAdmin.canAuthorDevotionals, isTrue);
+      expect(UserRole.churchAdmin.canAuthorDevotionals, isFalse);
+      expect(UserRole.youthPastor.canAuthorDevotionals, isFalse);
+      expect(UserRole.parent.canAuthorDevotionals, isFalse);
+      expect(UserRole.youth.canAuthorDevotionals, isFalse);
+    });
+
+    test('only household roles keep a daily progress record', () {
+      // Mirrors progress_upsert_own. Staff read the same devotional but have
+      // no streak of their own, so they see no check-off card.
+      expect(UserRole.youth.tracksDailyProgress, isTrue);
+      expect(UserRole.parent.tracksDailyProgress, isTrue);
+      expect(UserRole.youthPastor.tracksDailyProgress, isFalse);
+      expect(UserRole.churchAdmin.tracksDailyProgress, isFalse);
+      expect(UserRole.appAdmin.tracksDailyProgress, isFalse);
+    });
+
+    test('messaging is between a household and its youth pastor', () {
+      // Mirrors the branches in open_thread(). church_admin is deliberately
+      // absent: administration is not pastoral care. app_admin reaches
+      // messages only through the audited admin_read_thread().
+      expect(UserRole.youth.canUseMessaging, isTrue);
+      expect(UserRole.parent.canUseMessaging, isTrue);
+      expect(UserRole.youthPastor.canUseMessaging, isTrue);
+      expect(UserRole.churchAdmin.canUseMessaging, isFalse);
+      expect(UserRole.appAdmin.canUseMessaging, isFalse);
+    });
+
+    test('only a member starts a thread; only a pastor receives one', () {
+      expect(UserRole.youth.canMessagePastor, isTrue);
+      expect(UserRole.parent.canMessagePastor, isTrue);
+      expect(UserRole.youthPastor.canMessagePastor, isFalse);
+      expect(UserRole.youthPastor.isMessagingStaff, isTrue);
+      expect(UserRole.parent.isMessagingStaff, isFalse);
+    });
+
+    test('only pastoral roles see church-wide engagement', () {
+      // Mirrors the role test inside youth_engagement_overview().
+      expect(UserRole.youthPastor.canViewEngagementDashboard, isTrue);
+      expect(UserRole.appAdmin.canViewEngagementDashboard, isTrue);
+      expect(UserRole.churchAdmin.canViewEngagementDashboard, isFalse);
+      expect(UserRole.parent.canViewEngagementDashboard, isFalse);
+      expect(UserRole.youth.canViewEngagementDashboard, isFalse);
+    });
   });
 }

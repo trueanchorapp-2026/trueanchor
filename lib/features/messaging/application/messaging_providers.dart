@@ -1,0 +1,191 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/providers/supabase_providers.dart';
+import '../../church/application/church_providers.dart';
+import '../../profile/application/profile_providers.dart';
+import '../../profile/domain/profile.dart';
+import '../domain/message.dart';
+import '../domain/message_thread.dart';
+import '../domain/messaging_repository.dart';
+import '../infrastructure/supabase_messaging_repository.dart';
+
+final messagingRepositoryProvider = Provider<MessagingRepository>(
+  (ref) => SupabaseMessagingRepository(ref.watch(supabaseClientProvider)),
+);
+
+/// The caller's inbox, most recent conversation first.
+class ThreadList extends AsyncNotifier<List<MessageThread>> {
+  @override
+  Future<List<MessageThread>> build() async {
+    // Re-runs on sign-out, so one person's conversations never survive into
+    // the next session.
+    ref.watch(currentUserIdProvider);
+
+    final profile = await ref.watch(currentProfileProvider.future);
+    if (profile == null || !profile.role.canUseMessaging) return const [];
+
+    return ref.watch(messagingRepositoryProvider).fetchThreads();
+  }
+
+  Future<void> refresh() async {
+    state = await AsyncValue.guard(build);
+  }
+
+  /// Opens the conversation and folds it into the list.
+  ///
+  /// Idempotent, because `open_thread()` is: tapping "Message my pastor" twice
+  /// returns the same thread rather than starting a second one.
+  Future<MessageThread> open({String? withId}) async {
+    final thread =
+        await ref.read(messagingRepositoryProvider).openThread(withId: withId);
+    final current = state.value ?? const <MessageThread>[];
+    state = AsyncData([
+      thread,
+      ...current.where((existing) => existing.id != thread.id),
+    ]);
+    return thread;
+  }
+
+  /// Moves a thread to the top after a message lands in it, matching what the
+  /// `trg_bump_thread_activity` trigger just did server-side — including the
+  /// sender's own read receipt, so writing to someone never leaves you with an
+  /// unread badge for your own words.
+  ///
+  /// Takes the whole [message] rather than a timestamp because who sent it is
+  /// half of what this has to know.
+  void bump(Message message) {
+    final current = state.value;
+    if (current == null) return;
+    final index = current.indexWhere((thread) => thread.id == message.threadId);
+    if (index < 0) return;
+    final bumped =
+        current[index].withMessageFrom(message.senderId, message.createdAt);
+    state = AsyncData([
+      bumped,
+      ...current.where((thread) => thread.id != message.threadId),
+    ]);
+  }
+
+  Future<void> markRead(MessageThread thread) async {
+    await ref.read(messagingRepositoryProvider).markRead(thread);
+    // The receipt only drives an unread badge, so re-reading the row is not
+    // worth a round trip -- the next refresh picks up the stamped value.
+    await refresh();
+  }
+}
+
+final threadListProvider =
+    AsyncNotifierProvider<ThreadList, List<MessageThread>>(ThreadList.new);
+
+/// One conversation's messages, oldest first.
+class ThreadMessages extends AsyncNotifier<List<Message>> {
+  ThreadMessages(this.threadId);
+
+  /// A family notifier takes its argument through the constructor in Riverpod
+  /// 3; `build` stays parameterless.
+  final String threadId;
+
+  @override
+  Future<List<Message>> build() {
+    ref.watch(currentUserIdProvider);
+    return ref.watch(messagingRepositoryProvider).fetchMessages(threadId);
+  }
+
+  Future<void> send(String body) async {
+    final trimmed = body.trim();
+    if (trimmed.isEmpty) return;
+
+    // The write happens first: a bubble must never appear for a message the
+    // database refused.
+    final sent = await ref
+        .read(messagingRepositoryProvider)
+        .send(threadId: threadId, body: trimmed);
+
+    state = AsyncData([...(state.value ?? const <Message>[]), sent]);
+    ref.read(threadListProvider.notifier).bump(sent);
+  }
+
+  /// Withdraws a message inside the five-minute window.
+  ///
+  /// A delete outside the window matches no row and reports success, so the
+  /// list is re-read rather than assumed — if the message is still there, the
+  /// window had closed.
+  Future<void> remove(String messageId) async {
+    await ref.read(messagingRepositoryProvider).deleteMessage(messageId);
+    state = await AsyncValue.guard(
+      () => ref.read(messagingRepositoryProvider).fetchMessages(threadId),
+    );
+  }
+}
+
+final threadMessagesProvider =
+    AsyncNotifierProvider.family<ThreadMessages, List<Message>, String>(
+  ThreadMessages.new,
+);
+
+/// The youth pastors a member may write to. Empty for anyone who is not
+/// messaging one — a pastor picks from [messageableMembersProvider] instead.
+///
+/// A member may hold a conversation with every one of these, not just one:
+/// `message_threads` is unique on the *pair*, so a second pastor is a second
+/// thread rather than a replacement for the first.
+final churchYouthPastorsProvider =
+    FutureProvider<List<PastorOption>>((ref) async {
+  final profile = await ref.watch(currentProfileProvider.future);
+  if (profile == null || !profile.role.canMessagePastor) return const [];
+  return ref.watch(messagingRepositoryProvider).fetchYouthPastors();
+});
+
+/// The parents and youth a youth pastor may open a conversation with.
+///
+/// A plain directory read rather than an RPC, because `profiles_select_staff`
+/// (0006) already grants a pastor the whole church — the reverse of
+/// [churchYouthPastorsProvider], which needs a security definer function
+/// precisely because members may *not* read staff profiles.
+///
+/// The filter mirrors `open_thread()`'s `v_target.role not in ('parent',
+/// 'youth')` check, so the picker cannot offer someone the RPC would refuse:
+/// no church admins, and no other pastors.
+final messageableMembersProvider = FutureProvider<List<Profile>>((ref) async {
+  final profile = await ref.watch(currentProfileProvider.future);
+  if (profile == null || !profile.role.isMessagingStaff) return const [];
+
+  final people = await ref.watch(churchRepositoryProvider).fetchDirectory();
+  return people.where((person) => person.role.canMessagePastor).toList();
+});
+
+/// The single conversation to show in place of an inbox, or null when a list is
+/// the right screen.
+///
+/// A member whose church has one youth pastor has exactly one conversation
+/// available to them, so an inbox listing one row is a tap that teaches
+/// nothing — they already know who they are writing to, and the tab *is* the
+/// conversation.
+///
+/// The count that decides this is the church's pastors, not the member's
+/// threads. Those differ exactly where it matters: with two pastors and one
+/// thread open, collapsing would render the tab as that conversation and drop
+/// the compose button along with the list, leaving the member no way to ever
+/// reach the second pastor. So the list stays whenever there is more than one
+/// person to choose between — and while the count is still unknown, because
+/// falling back to a list costs one tap where a wrong collapse is a dead end.
+///
+/// A youth pastor always gets the list: their inbox grows, and collapsing it
+/// once would put them somewhere different the moment a second family writes.
+final soloThreadProvider = Provider<MessageThread?>((ref) {
+  final profile = ref.watch(currentProfileProvider).value;
+  if (profile == null || !profile.role.canMessagePastor) return null;
+
+  final pastors = ref.watch(churchYouthPastorsProvider).value;
+  if (pastors == null || pastors.length != 1) return null;
+
+  final threads = ref.watch(threadListProvider).value ?? const [];
+  return threads.length == 1 ? threads.first : null;
+});
+
+/// How many conversations have something new in them. Drives the nav badge.
+final unreadThreadCountProvider = Provider<int>((ref) {
+  final userId = ref.watch(currentUserIdProvider);
+  final threads = ref.watch(threadListProvider).value ?? const [];
+  return threads.where((thread) => thread.isUnreadFor(userId)).length;
+});

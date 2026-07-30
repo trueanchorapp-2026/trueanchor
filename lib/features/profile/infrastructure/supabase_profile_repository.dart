@@ -48,8 +48,12 @@ class SupabaseProfileRepository implements ProfileRepository {
           .from('profiles')
           .select(_columns)
           .eq('family_id', familyId)
-          .order('role')
-          .order('first_name');
+          // Parents above youth, then A->Z. public.user_role is declared
+          // ('app_admin','church_admin','youth_pastor','parent','youth'), so
+          // ascending is what puts the adults first -- and it has to be spelled
+          // out, because postgrest-dart defaults it to FALSE unlike supabase-js.
+          .order('role', ascending: true)
+          .order('first_name', ascending: true);
       return rows.map(Profile.fromJson).toList();
     } catch (error) {
       throw mapError(error);
@@ -63,8 +67,9 @@ class SupabaseProfileRepository implements ProfileRepository {
           .from('profiles')
           .select(_columns)
           .eq('church_id', churchId)
-          .order('last_name')
-          .order('first_name');
+          // A->Z; see fetchFamilyMembers on the ascending default.
+          .order('last_name', ascending: true)
+          .order('first_name', ascending: true);
       return rows.map(Profile.fromJson).toList();
     } catch (error) {
       throw mapError(error);

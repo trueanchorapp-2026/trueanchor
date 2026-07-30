@@ -26,7 +26,10 @@ class SupabaseChurchRepository implements ChurchRepository {
   @override
   Future<List<Family>> fetchFamilies() async {
     try {
-      final rows = await _client.from('families').select().order('name');
+      // ascending is spelled out because postgrest-dart defaults it to FALSE,
+      // unlike supabase-js -- a bare .order() sorts Z->A.
+      final rows =
+          await _client.from('families').select().order('name', ascending: true);
       return rows.map(Family.fromJson).toList();
     } catch (error) {
       throw mapError(error);
@@ -36,11 +39,14 @@ class SupabaseChurchRepository implements ChurchRepository {
   @override
   Future<List<Profile>> fetchDirectory() async {
     try {
+      // A→Z. ascending is spelled out because postgrest-dart defaults it to
+      // FALSE, unlike supabase-js -- a bare .order() here put the directory,
+      // and the member picker built on it, in reverse.
       final rows = await _client
           .from('profiles')
           .select()
-          .order('last_name')
-          .order('first_name');
+          .order('last_name', ascending: true)
+          .order('first_name', ascending: true);
       return rows.map(Profile.fromJson).toList();
     } catch (error) {
       throw mapError(error);
