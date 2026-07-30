@@ -77,13 +77,29 @@ class MessageThread {
     return null;
   }
 
-  MessageThread copyWith({DateTime? lastMessageAt}) => MessageThread(
+  /// This thread as it stands once [senderId] posts a message at [at].
+  ///
+  /// Advancing the sender's own receipt is the point of the method rather than
+  /// an extra it performs. [lastMessageAt] moves with every message including
+  /// your own, so without it the thread you just wrote in reads as unread to
+  /// you and lights up your own badge. Sending is proof you have read what came
+  /// before it.
+  ///
+  /// Only the sender's receipt moves. The other party's is what makes the
+  /// badge mean anything, and it is not this caller's to stamp.
+  ///
+  /// Mirrors `private.bump_thread_activity()` (0017), so an optimistic list and
+  /// a re-read from the server agree rather than flickering between two
+  /// answers.
+  MessageThread withMessageFrom(String? senderId, DateTime at) => MessageThread(
         id: id,
         memberId: memberId,
         pastorId: pastorId,
-        lastMessageAt: lastMessageAt ?? this.lastMessageAt,
-        memberLastReadAt: memberLastReadAt,
-        pastorLastReadAt: pastorLastReadAt,
+        lastMessageAt: at,
+        memberLastReadAt:
+            senderId != null && senderId == memberId ? at : memberLastReadAt,
+        pastorLastReadAt:
+            senderId != null && senderId == pastorId ? at : pastorLastReadAt,
         memberName: memberName,
         pastorName: pastorName,
       );

@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:trueanchor/core/error/app_exception.dart';
 import 'package:trueanchor/core/providers/supabase_providers.dart';
+import 'package:trueanchor/features/church/application/church_providers.dart';
+import 'package:trueanchor/features/church/domain/church_repository.dart';
 import 'package:trueanchor/features/messaging/application/messaging_providers.dart';
 import 'package:trueanchor/features/messaging/domain/message.dart';
 import 'package:trueanchor/features/messaging/domain/message_thread.dart';
@@ -16,6 +18,8 @@ class MockMessagingRepository extends Mock implements MessagingRepository {}
 
 class MockProfileRepository extends Mock implements ProfileRepository {}
 
+class MockChurchRepository extends Mock implements ChurchRepository {}
+
 class _FakeThread extends Fake implements MessageThread {}
 
 Profile _profile(UserRole role) => Profile(
@@ -27,6 +31,26 @@ Profile _profile(UserRole role) => Profile(
       lastName: 'Rivera',
       email: 'sam@example.com',
     );
+
+Profile _person(
+  String id,
+  UserRole role, {
+  String first = 'Alex',
+  String last = 'Doe',
+}) =>
+    Profile(
+      id: id,
+      churchId: 'church-1',
+      role: role,
+      firstName: first,
+      lastName: last,
+      email: '$id@example.com',
+    );
+
+List<PastorOption> _pastors(int count) => [
+      for (var i = 1; i <= count; i++)
+        PastorOption(id: 'pastor-$i', name: 'Pastor $i'),
+    ];
 
 MessageThread _thread({
   String id = 'thread-1',
@@ -52,6 +76,7 @@ Message _message({String id = 'message-1', DateTime? createdAt}) => Message(
 void main() {
   late MockMessagingRepository repository;
   late MockProfileRepository profiles;
+  late MockChurchRepository church;
 
   setUpAll(() {
     registerFallbackValue(_FakeThread());
@@ -60,20 +85,31 @@ void main() {
   setUp(() {
     repository = MockMessagingRepository();
     profiles = MockProfileRepository();
+    church = MockChurchRepository();
   });
 
   ProviderContainer containerWith({
     String? userId = 'member-1',
     UserRole role = UserRole.youth,
+    int pastorCount = 1,
   }) {
     when(() => profiles.fetchMine(any())).thenAnswer((_) async => _profile(role));
+    when(repository.fetchYouthPastors)
+        .thenAnswer((_) async => _pastors(pastorCount));
     return ProviderContainer.test(
       overrides: [
         currentUserIdProvider.overrideWithValue(userId),
         profileRepositoryProvider.overrideWithValue(profiles),
         messagingRepositoryProvider.overrideWithValue(repository),
+        churchRepositoryProvider.overrideWithValue(church),
       ],
     );
+  }
+
+  /// soloThreadProvider reads the pastor count synchronously, so a test that
+  /// does not settle it first is only ever testing the loading case.
+  Future<void> settle(ProviderContainer container) async {
+    await container.read(churchYouthPastorsProvider.future);
   }
 
   group('ThreadList.build', () {
@@ -269,6 +305,40 @@ void main() {
 
       expect(container.read(unreadThreadCountProvider), 1);
     });
+
+    test('a message you just sent does not light up your own badge', () async {
+      // Sending moves last_message_at past your own receipt, so without the
+      // sender's receipt moving too the badge reports your own words back to
+      // you. Mirrors bump_thread_activity() in 0017.
+      when(repository.fetchThreads).thenAnswer(
+        (_) async => [
+          _thread(
+            lastMessageAt: DateTime(2026, 7, 29, 10),
+            memberReadAt: DateTime(2026, 7, 29, 11),
+          ),
+        ],
+      );
+      when(() => repository.fetchMessages('thread-1'))
+          .thenAnswer((_) async => const []);
+      when(
+        () => repository.send(
+          threadId: any(named: 'threadId'),
+          body: any(named: 'body'),
+        ),
+      ).thenAnswer(
+        (_) async => _message(id: 'message-2', createdAt: DateTime(2026, 8)),
+      );
+
+      final container = containerWith();
+      await container.read(threadListProvider.future);
+      expect(container.read(unreadThreadCountProvider), 0);
+
+      await container
+          .read(threadMessagesProvider('thread-1').notifier)
+          .send('On my way');
+
+      expect(container.read(unreadThreadCountProvider), 0);
+    });
   });
 
   group('soloThreadProvider', () {
@@ -277,17 +347,32 @@ void main() {
       when(repository.fetchThreads).thenAnswer((_) async => [_thread()]);
 
       final container = containerWith();
+      await settle(container);
       await container.read(threadListProvider.future);
 
       expect(container.read(soloThreadProvider)?.id, 'thread-1');
     });
 
-    test('keeps the list when a member has two pastors, so neither is hidden',
+    test('keeps the list when the church has two pastors and one is unwritten',
         () async {
+      // The regression this provider exists to prevent. Collapsing here would
+      // render the tab as the one open conversation and drop the compose
+      // button with it, leaving no way to ever reach the second pastor.
+      when(repository.fetchThreads).thenAnswer((_) async => [_thread()]);
+
+      final container = containerWith(pastorCount: 2);
+      await settle(container);
+      await container.read(threadListProvider.future);
+
+      expect(container.read(soloThreadProvider), isNull);
+    });
+
+    test('keeps the list when a member is writing to both pastors', () async {
       when(repository.fetchThreads)
           .thenAnswer((_) async => [_thread(), _thread(id: 'thread-2')]);
 
-      final container = containerWith();
+      final container = containerWith(pastorCount: 2);
+      await settle(container);
       await container.read(threadListProvider.future);
 
       expect(container.read(soloThreadProvider), isNull);
@@ -313,6 +398,18 @@ void main() {
       when(repository.fetchThreads).thenAnswer((_) async => [_thread()]);
 
       final container = containerWith();
+      await settle(container);
+
+      expect(container.read(soloThreadProvider), isNull);
+    });
+
+    test('is null while the pastor count is still unknown', () async {
+      // The list is one extra tap; a wrong collapse is a dead end. So the
+      // unresolved case falls to the list, not to the conversation.
+      when(repository.fetchThreads).thenAnswer((_) async => [_thread()]);
+
+      final container = containerWith();
+      await container.read(threadListProvider.future);
 
       expect(container.read(soloThreadProvider), isNull);
     });
@@ -325,6 +422,54 @@ void main() {
     });
   });
 
+  group('messageableMembersProvider', () {
+    test('offers a pastor the parents and youth of their church', () async {
+      when(church.fetchDirectory).thenAnswer(
+        (_) async => [
+          _person('parent-1', UserRole.parent),
+          _person('youth-1', UserRole.youth),
+        ],
+      );
+
+      final container = containerWith(
+        userId: 'pastor-1',
+        role: UserRole.youthPastor,
+      );
+
+      final members = await container.read(messageableMembersProvider.future);
+      expect(members.map((m) => m.id), ['parent-1', 'youth-1']);
+    });
+
+    test('never offers someone open_thread() would refuse', () async {
+      // Its youth_pastor branch takes 'parent' and 'youth' only, so a picker
+      // listing an admin or a peer would be offering a guaranteed failure.
+      when(church.fetchDirectory).thenAnswer(
+        (_) async => [
+          _person('admin-1', UserRole.churchAdmin),
+          _person('pastor-2', UserRole.youthPastor),
+          _person('parent-1', UserRole.parent),
+        ],
+      );
+
+      final container = containerWith(
+        userId: 'pastor-1',
+        role: UserRole.youthPastor,
+      );
+
+      final members = await container.read(messageableMembersProvider.future);
+      expect(members.single.id, 'parent-1');
+    });
+
+    test('a member is not offered a directory they cannot read', () async {
+      // profiles_select_staff grants the church-wide read to staff only, so
+      // this fetch would come back all but empty for a parent or youth.
+      final container = containerWith(role: UserRole.parent);
+
+      expect(await container.read(messageableMembersProvider.future), isEmpty);
+      verifyNever(church.fetchDirectory);
+    });
+  });
+
   group('churchYouthPastorsProvider', () {
     test('a youth pastor is not offered a picker of their peers', () async {
       final container = containerWith(role: UserRole.youthPastor);
@@ -334,11 +479,11 @@ void main() {
     });
 
     test('a member gets the church\'s pastors', () async {
+      final container = containerWith();
+      // After containerWith, which stubs a default roster of its own.
       when(repository.fetchYouthPastors).thenAnswer(
         (_) async => const [PastorOption(id: 'pastor-1', name: 'Dana Ford')],
       );
-
-      final container = containerWith();
 
       final options = await container.read(churchYouthPastorsProvider.future);
       expect(options.single.displayName, 'Dana Ford');

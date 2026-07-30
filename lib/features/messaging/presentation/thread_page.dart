@@ -67,6 +67,7 @@ class _ThreadViewState extends ConsumerState<ThreadView> {
   final _scroll = ScrollController();
   bool _sending = false;
   bool _markedRead = false;
+  bool _openedAtNewest = false;
 
   @override
   void dispose() {
@@ -105,10 +106,30 @@ class _ThreadViewState extends ConsumerState<ThreadView> {
     }
   }
 
-  void _scrollToEnd() {
+  /// Opens the conversation on the newest message rather than the oldest.
+  ///
+  /// Messages run oldest-first, so an untouched list starts at the beginning of
+  /// the transcript — which, for the person who just received something, is the
+  /// wrong end of it. Guarded like [_markReadOnce] because the provider rebuilds
+  /// on every send, and after the first frame the scroll position is the user's.
+  void _openAtNewestOnce(List<Message> messages) {
+    if (_openedAtNewest || messages.isEmpty) return;
+    _openedAtNewest = true;
+    _scrollToEnd();
+  }
+
+  /// Jumps to the bottom, over several frames.
+  ///
+  /// [ListView.builder] only *estimates* `maxScrollExtent` for items it has not
+  /// laid out, so on a long thread a single jump lands short of the end and then
+  /// stops. Each pass re-reads the extent once the previous jump has been laid
+  /// out; it settles quickly and is a no-op once there is nowhere left to go.
+  void _scrollToEnd({int passes = 3}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scroll.hasClients) return;
-      _scroll.jumpTo(_scroll.position.maxScrollExtent);
+      if (!mounted || !_scroll.hasClients) return;
+      final end = _scroll.position.maxScrollExtent;
+      if (_scroll.offset < end) _scroll.jumpTo(end);
+      if (passes > 1) _scrollToEnd(passes: passes - 1);
     });
   }
 
@@ -164,6 +185,7 @@ class _ThreadViewState extends ConsumerState<ThreadView> {
                   message: 'Say hello. Only the two of you can read this.',
                 );
               }
+              _openAtNewestOnce(messages);
               return ListView.builder(
                 controller: _scroll,
                 padding: const EdgeInsets.fromLTRB(

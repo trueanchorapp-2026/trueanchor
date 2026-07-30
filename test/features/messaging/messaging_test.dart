@@ -135,6 +135,57 @@ void main() {
     });
   });
 
+  group('MessageThread.withMessageFrom', () {
+    final sentAt = DateTime(2026, 7, 29, 12);
+
+    test('a message you sent leaves the thread read for you', () {
+      // The badge bug: last_message_at moves for your own message too, so
+      // without the receipt moving with it you get an unread count of one for
+      // words you just typed.
+      final thread = _thread(
+        lastMessageAt: DateTime(2026, 7, 29, 10),
+        memberReadAt: DateTime(2026, 7, 29, 11),
+      ).withMessageFrom('member-1', sentAt);
+
+      expect(thread.lastMessageAt, sentAt);
+      expect(thread.isUnreadFor('member-1'), isFalse);
+    });
+
+    test('and unread for the person you sent it to', () {
+      // The other half. A fix that quieted both sides would have removed the
+      // feature rather than the bug.
+      final thread = _thread(
+        pastorReadAt: DateTime(2026, 7, 29, 11),
+      ).withMessageFrom('member-1', sentAt);
+
+      expect(thread.isUnreadFor('pastor-1'), isTrue);
+    });
+
+    test('a message sent to you does not stamp your receipt', () {
+      final thread = _thread(
+        memberReadAt: DateTime(2026, 7, 29, 11),
+      ).withMessageFrom('pastor-1', sentAt);
+
+      expect(thread.isUnreadFor('member-1'), isTrue);
+      expect(thread.memberLastReadAt, DateTime(2026, 7, 29, 11));
+    });
+
+    test('an unknown sender stamps nobody', () {
+      final thread = _thread().withMessageFrom(null, sentAt);
+
+      expect(thread.memberLastReadAt, isNull);
+      expect(thread.pastorLastReadAt, isNull);
+      expect(thread.lastMessageAt, sentAt);
+    });
+
+    test('carries the names across, so the inbox row does not go blank', () {
+      final thread = _thread(memberName: 'Sam Rivera', pastorName: 'Dana Ford')
+          .withMessageFrom('member-1', sentAt);
+
+      expect(thread.otherPartyName('member-1'), 'Dana Ford');
+    });
+  });
+
   group('MessageThread.otherPartyName', () {
     test('names the person on the other end', () {
       final thread = _thread(memberName: 'Sam Rivera', pastorName: 'Dana Ford');

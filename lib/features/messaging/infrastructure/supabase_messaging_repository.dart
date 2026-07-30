@@ -37,7 +37,13 @@ class SupabaseMessagingRepository implements MessagingRepository {
           .from('messages')
           .select()
           .eq('thread_id', threadId)
-          .order('created_at');
+          // Oldest first, so the transcript reads downward and the newest
+          // message sits at the bottom where both sides expect it.
+          //
+          // ascending is spelled out because postgrest-dart defaults it to
+          // FALSE, unlike supabase-js. A bare .order('created_at') here was
+          // returning the conversation backwards for everyone.
+          .order('created_at', ascending: true);
       return rows.map(Message.fromJson).toList();
     } catch (error) {
       throw mapError(error);
