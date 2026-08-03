@@ -75,7 +75,7 @@ Four main sections, role-dependent visibility:
 ### New — Discipleship
 - **Devotional restructure**: Each devotional includes Verse of the Day, Upward Reflection (core teaching), Inward Reflection (self-reflection prompt with option to journal), Outward action (youth: loving action opportunity; adults: community awareness), and Prayer (optional response prayer or prayer requests).
 - **Journal from devotional**: Create journal or prayer entry directly from a devotional's Inward Reflection section.
-- **Love-in-action logging** (youth Outward): Youth log outward actions such as befriending a lonely classmate, inviting someone to youth group, or praying for a specific person. Includes action description and optional next steps.
+- **Relational capital tracker** (youth Outward): Youth log and track ongoing relationships — befriending a lonely classmate, inviting someone to youth group, praying for a specific person. Each relationship can have multiple logged interactions over time with follow-up next steps, building a picture of sustained outward investment rather than one-off actions.
 - **Youth group chat**: Youth pastor creates group, invites youth members from the same church. Supplements existing 1-on-1 messaging. Church-scoped (must be same church to join).
 
 ### New — Community (adults only)
@@ -83,9 +83,10 @@ Four main sections, role-dependent visibility:
 - **Communities**: City-level entity within a region, created by Regional Admin (e.g., Boca Raton, Coral Springs, Weston). Based on physical location.
 - **Community membership**: Head of household joins a community for the family. One community per family. Any family can join any community regardless of church affiliation.
 - **Community news/updates**: Regional Admin or Community Admin posts news and updates (e.g., school board decisions, curriculum concerns).
+- **School information hub**: Local district insights, policy summaries, and parent engagement guidance — surfaced within the Community tab as community-scoped content.
 - **Discussion posts**: Adult community members create and interact with discussion threads about community issues.
 - **Community events**: Separate from church events. Created by Regional Admin or Community Admin. Outreach-focused.
-- **Parent resource portal**: Curated links and content for parents (content provided later).
+- **Parent resource portal**: Curated links and content for parents — biblical worldview resources, media literacy guides, identity conversation starters, practical parenting tools (content provided later).
 
 ### New — Profile
 - City/state of residence (used for community matching so families join the right community).
@@ -147,7 +148,7 @@ Family belongs to one church and optionally one community (joined by head of hou
 - Baptized
 - Prayer requests
 - Journal
-- Love-in-action log
+- Relational capital tracker (ongoing relationship logs)
 Sharing for journals/prayers is configurable.
 
 ## Content
