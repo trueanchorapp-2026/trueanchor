@@ -12,6 +12,21 @@ class SupabaseDevotionalRepository implements DevotionalRepository {
   static const _columns = '*';
 
   @override
+  Future<List<Devotional>> fetchHistory({int limit = 30}) async {
+    try {
+      final rows = await _client
+          .from('devotionals')
+          .select(_columns)
+          .lte('publish_on', _formatDate(DateTime.now()))
+          .order('publish_on', ascending: false)
+          .limit(limit);
+      return rows.map(Devotional.fromJson).toList();
+    } catch (error) {
+      throw mapError(error);
+    }
+  }
+
+  @override
   Future<Devotional?> fetchForDate(DateTime date) async {
     try {
       // The exact-date row and the fallback are the same query: order by

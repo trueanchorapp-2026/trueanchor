@@ -10,6 +10,13 @@ final journalRepositoryProvider = Provider<JournalRepository>(
   (ref) => SupabaseJournalRepository(ref.watch(supabaseClientProvider)),
 );
 
+/// The signed-in user's Inward Reflection for a specific devotional.
+final devotionalReflectionProvider =
+    FutureProvider.family<JournalEntry?, String>((ref, devotionalId) {
+  ref.watch(currentUserIdProvider);
+  return ref.watch(journalRepositoryProvider).fetchForDevotional(devotionalId);
+});
+
 /// Whether the signed-in user's church has a youth pastor, which decides
 /// whether the "+ pastor" rungs reach anyone at all.
 final churchHasYouthPastorProvider = FutureProvider<bool>((ref) {
@@ -38,6 +45,7 @@ class JournalList extends AsyncNotifier<List<JournalEntry>> {
     required String body,
     required EntryType entryType,
     required EntryVisibility visibility,
+    String? devotionalId,
   }) async {
     final authorId = ref.read(currentUserIdProvider);
     if (authorId == null) {
@@ -50,6 +58,7 @@ class JournalList extends AsyncNotifier<List<JournalEntry>> {
           body: body,
           entryType: entryType,
           visibility: visibility,
+          devotionalId: devotionalId,
         );
 
     state = AsyncData([created, ...state.value ?? const []]);

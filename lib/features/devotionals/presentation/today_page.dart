@@ -8,8 +8,10 @@ import '../../progress/presentation/progress_check_card.dart';
 import '../application/devotional_providers.dart';
 import '../domain/devotional.dart';
 import 'devotional_view.dart';
+import 'inward_reflection_card.dart';
 
-/// The home screen: today's devotional.
+/// The daily discipleship screen: today's devotional with Verse, Upward,
+/// Inward (inline journal/prayer), and Outward sections.
 class TodayPage extends ConsumerWidget {
   const TodayPage({super.key});
 
@@ -36,16 +38,11 @@ class TodayPage extends ConsumerWidget {
   }
 }
 
-/// Nothing has ever been published. The check-offs stay: reading Scripture on
-/// paper counts, and a youth should not lose a day because the content
-/// calendar has a hole in it.
 class _EmptyDay extends StatelessWidget {
   const _EmptyDay();
 
   @override
   Widget build(BuildContext context) {
-    // Keep the scrollable so pull-to-refresh still works on an empty day,
-    // matching the journal and milestone lists.
     return LayoutBuilder(
       builder: (context, constraints) => SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -104,8 +101,6 @@ class _DevotionalScroll extends StatelessWidget {
                     ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
               const SizedBox(height: AppTheme.space3),
-              // Say plainly when this is not today's reading rather than
-              // passing an older devotional off as the current one.
               if (!isToday) ...[
                 const NoticeBanner(
                   message:
@@ -114,10 +109,13 @@ class _DevotionalScroll extends StatelessWidget {
                 ),
                 const SizedBox(height: AppTheme.space4),
               ],
-              DevotionalView(devotional: devotional),
+              DevotionalView(
+                devotional: devotional,
+                inwardChild: InwardReflectionCard(
+                  devotionalId: devotional.id,
+                ),
+              ),
               const SizedBox(height: AppTheme.space5),
-              // The card sits under the reading, not above it: you check off
-              // what you did, having done it.
               const ProgressCheckCard(),
             ],
           ),

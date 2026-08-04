@@ -33,12 +33,27 @@ class SupabaseJournalRepository implements JournalRepository {
   }
 
   @override
+  Future<JournalEntry?> fetchForDevotional(String devotionalId) async {
+    try {
+      final row = await _client
+          .from('journal_entries')
+          .select()
+          .eq('devotional_id', devotionalId)
+          .maybeSingle();
+      return row == null ? null : JournalEntry.fromJson(row);
+    } catch (error) {
+      throw mapError(error);
+    }
+  }
+
+  @override
   Future<JournalEntry> create({
     required String authorId,
     required String? title,
     required String body,
     required EntryType entryType,
     required EntryVisibility visibility,
+    String? devotionalId,
   }) async {
     try {
       final row = await _client
@@ -50,6 +65,7 @@ class SupabaseJournalRepository implements JournalRepository {
               body: body,
               entryType: entryType,
               visibility: visibility,
+              devotionalId: devotionalId,
             ),
           )
           .select()

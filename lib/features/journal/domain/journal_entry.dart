@@ -206,6 +206,7 @@ class JournalEntry {
     this.title,
     this.familyId,
     this.authorName,
+    this.devotionalId,
   });
 
   factory JournalEntry.fromJson(Map<String, dynamic> json) => JournalEntry(
@@ -217,6 +218,7 @@ class JournalEntry {
         entryType: EntryType.fromWire(json['entry_type'] as String),
         visibility: EntryVisibility.fromWire(json['visibility'] as String),
         familyId: json['family_id'] as String?,
+        devotionalId: json['devotional_id'] as String?,
         createdAt:
             DateTime.tryParse(json['created_at'] as String? ?? '')?.toLocal() ??
                 DateTime.now(),
@@ -238,6 +240,7 @@ class JournalEntry {
   final EntryType entryType;
   final EntryVisibility visibility;
   final String? familyId;
+  final String? devotionalId;
   final DateTime createdAt;
 
   bool isAuthoredBy(String userId) => authorId == userId;
@@ -271,6 +274,7 @@ class JournalEntry {
     required String body,
     required EntryType entryType,
     required EntryVisibility visibility,
+    String? devotionalId,
   }) =>
       {
         'author_id': authorId,
@@ -278,6 +282,7 @@ class JournalEntry {
         'body': body.trim(),
         'entry_type': entryType.wire,
         'visibility': visibility.wire,
+        if (devotionalId != null) 'devotional_id': devotionalId,
       };
 
   /// author_id, church_id and family_id are absent: an edit must never be able

@@ -9,6 +9,12 @@ final devotionalRepositoryProvider = Provider<DevotionalRepository>(
   (ref) => SupabaseDevotionalRepository(ref.watch(supabaseClientProvider)),
 );
 
+/// Past devotionals for the history view, most recent first.
+final devotionalHistoryProvider = FutureProvider<List<Devotional>>((ref) {
+  ref.watch(currentUserIdProvider);
+  return ref.watch(devotionalRepositoryProvider).fetchHistory();
+});
+
 /// The devotional to read today, or the most recent one when today's has not
 /// been published. Null when the table is empty.
 ///

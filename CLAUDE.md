@@ -73,8 +73,7 @@ Four main sections, role-dependent visibility:
 - Community updates summary for adults
 
 ### New — Discipleship
-- **Devotional restructure**: Each devotional includes Verse of the Day, Upward Reflection (core teaching), Inward Reflection (self-reflection prompt with option to journal), Outward action (youth: loving action opportunity; adults: community awareness), and Prayer (optional response prayer or prayer requests).
-- **Journal from devotional**: Create journal or prayer entry directly from a devotional's Inward Reflection section.
+- **Devotional restructure**: Each devotional includes Verse of the Day, Upward Reflection (core teaching), Inward Reflection (the journal/prayer entry itself — users write their reflection and prayer inline as part of the devotional flow), and Outward action (youth: loving action opportunity; adults: community awareness).
 - **Relational capital tracker** (youth Outward): Youth log and track ongoing relationships — befriending a lonely classmate, inviting someone to youth group, praying for a specific person. Each relationship can have multiple logged interactions over time with follow-up next steps, building a picture of sustained outward investment rather than one-off actions.
 - **Youth group chat**: Youth pastor creates group, invites youth members from the same church. Supplements existing 1-on-1 messaging. Church-scoped (must be same church to join).
 
@@ -155,9 +154,8 @@ Sharing for journals/prayers is configurable.
 Global native devotional content, structured per devotional:
 - Verse of the Day
 - Upward Reflection (core devotional teaching)
-- Inward Reflection (self-reflection prompt, journal entry point)
+- Inward Reflection (the journal/prayer section — user writes their reflection and prayer inline)
 - Outward action (youth: loving action opportunity; adults: community awareness)
-- Prayer (optional response prayer prompt)
 
 ## Spiritual Milestones
 Track achievements such as:

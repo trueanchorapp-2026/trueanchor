@@ -2,12 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/router/app_router.dart';
 import '../../messaging/application/messaging_providers.dart';
 import '../../profile/application/profile_providers.dart';
 import '../../profile/domain/user_role.dart';
 
-/// A navigation destination plus the role rule for who sees it.
 class _Destination {
   const _Destination({
     required this.route,
@@ -22,63 +20,55 @@ class _Destination {
   final IconData selectedIcon;
 }
 
-const _today = _Destination(
-  route: Routes.today,
-  label: 'Today',
-  icon: Icons.wb_sunny_outlined,
-  selectedIcon: Icons.wb_sunny,
-);
-const _journal = _Destination(
-  route: Routes.journal,
-  label: 'Journal',
-  icon: Icons.menu_book_outlined,
-  selectedIcon: Icons.menu_book,
-);
-const _dashboard = _Destination(
-  route: Routes.dashboard,
-  label: 'Dashboard',
-  icon: Icons.insights_outlined,
-  selectedIcon: Icons.insights,
-);
-const _messages = _Destination(
-  route: Routes.messages,
-  label: 'Messages',
-  icon: Icons.forum_outlined,
-  selectedIcon: Icons.forum,
-);
-const _events = _Destination(
-  route: Routes.events,
-  label: 'Events',
-  icon: Icons.event_outlined,
-  selectedIcon: Icons.event,
-);
-const _milestones = _Destination(
-  route: Routes.milestones,
-  label: 'Milestones',
-  icon: Icons.emoji_events_outlined,
-  selectedIcon: Icons.emoji_events,
-);
-const _family = _Destination(
-  route: Routes.family,
-  label: 'Family',
+const _home = _Destination(
+  route: '/home',
+  label: 'Home',
   icon: Icons.home_outlined,
   selectedIcon: Icons.home,
 );
-const _church = _Destination(
-  route: Routes.church,
-  label: 'Church',
-  icon: Icons.church_outlined,
-  selectedIcon: Icons.church,
+const _discipleship = _Destination(
+  route: '/discipleship',
+  label: 'Discipleship',
+  icon: Icons.menu_book_outlined,
+  selectedIcon: Icons.menu_book,
+);
+const _community = _Destination(
+  route: '/community',
+  label: 'Community',
+  icon: Icons.diversity_3_outlined,
+  selectedIcon: Icons.diversity_3,
 );
 const _profile = _Destination(
-  route: Routes.profile,
+  route: '/profile',
   label: 'Profile',
   icon: Icons.person_outline,
   selectedIcon: Icons.person,
 );
 
-/// Navigation frame for signed-in users. Which destinations appear is decided
-/// by role, per CLAUDE.md's role-based access requirement.
+// Staff-only destinations kept for church admin / app admin who don't use
+// the 4-tab layout yet.
+const _dashboard = _Destination(
+  route: '/dashboard',
+  label: 'Dashboard',
+  icon: Icons.insights_outlined,
+  selectedIcon: Icons.insights,
+);
+const _church = _Destination(
+  route: '/church',
+  label: 'Church',
+  icon: Icons.church_outlined,
+  selectedIcon: Icons.church,
+);
+const _events = _Destination(
+  route: '/events',
+  label: 'Events',
+  icon: Icons.event_outlined,
+  selectedIcon: Icons.event,
+);
+
+/// Navigation frame for signed-in users. Parents and youth see the 4-tab
+/// layout (Home, Discipleship, Community, Profile). Church staff keep their
+/// existing navigation for now.
 class HomeShell extends ConsumerWidget {
   const HomeShell({required this.child, required this.location, super.key});
 
@@ -86,30 +76,19 @@ class HomeShell extends ConsumerWidget {
   final String location;
 
   List<_Destination> _destinationsFor(UserRole? role) {
-    // Church staff have no household and no journal of their own, but they
-    // read the same daily devotional everyone else does. A youth pastor gets
-    // Messages; a church admin does not — mirrors `open_thread()`, which
-    // refuses their role outright.
     if (role != null && role.isChurchStaff) {
       return [
-        // The dashboard comes first for a youth pastor because it is their
-        // home screen: the youth who need them, before anything else.
         if (role.canViewEngagementDashboard) _dashboard,
-        _today,
+        _discipleship,
         _church,
-        if (role.canUseMessaging) _messages,
         _events,
-        _milestones,
         _profile,
       ];
     }
-    return const [
-      _today,
-      _journal,
-      _messages,
-      _events,
-      _milestones,
-      _family,
+    return [
+      _home,
+      _discipleship,
+      if (role != UserRole.youth) _community,
       _profile,
     ];
   }
@@ -120,26 +99,29 @@ class HomeShell extends ConsumerWidget {
     final destinations = _destinationsFor(profile?.role);
     final unread = ref.watch(unreadThreadCountProvider);
 
-    /// The Messages tab is the only one that carries a count, so the badge is
-    /// applied here rather than added to every [_Destination].
     Widget iconFor(_Destination destination, {required bool selected}) {
       final icon =
           Icon(selected ? destination.selectedIcon : destination.icon);
-      if (destination.route != Routes.messages || unread == 0) return icon;
+      if (destination.route != '/discipleship' || unread == 0) return icon;
+      // Show unread badge on Discipleship since Messages lives inside it.
+      if (profile?.role.canUseMessaging != true) return icon;
       return Badge.count(count: unread, child: icon);
     }
 
-    var index = destinations.indexWhere((d) => location.startsWith(d.route));
+    var index =
+        destinations.indexWhere((d) => location.startsWith(d.route));
     if (index < 0) index = 0;
 
     void onSelected(int selected) {
       final route = destinations[selected].route;
-      if (route != location) context.go(route);
+      // For Discipleship, go to the default sub-tab.
+      final target =
+          route == '/discipleship' ? '/discipleship/today' : route;
+      if (target != location) context.go(target);
     }
 
     final title = destinations[index].label;
 
-    // Rail on wide viewports, bottom bar on narrow ones.
     final isWide = MediaQuery.sizeOf(context).width >= 760;
 
     if (isWide) {

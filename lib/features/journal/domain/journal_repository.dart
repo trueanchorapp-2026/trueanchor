@@ -9,12 +9,16 @@ abstract interface class JournalRepository {
   /// gets rows it should not have, so it never has to hide any.
   Future<List<JournalEntry>> fetchVisible();
 
+  /// The signed-in user's reflection for a specific devotional, if one exists.
+  Future<JournalEntry?> fetchForDevotional(String devotionalId);
+
   Future<JournalEntry> create({
     required String authorId,
     required String? title,
     required String body,
     required EntryType entryType,
     required EntryVisibility visibility,
+    String? devotionalId,
   });
 
   /// Rewrites an entry the caller authored. Visibility is editable here on

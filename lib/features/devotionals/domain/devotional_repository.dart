@@ -11,4 +11,7 @@ abstract interface class DevotionalRepository {
   /// Backed by `devotionals_select`, which is `using (true)`: every signed-in
   /// user reads the same global content.
   Future<Devotional?> fetchForDate(DateTime date);
+
+  /// Past devotionals in reverse chronological order, for the history view.
+  Future<List<Devotional>> fetchHistory({int limit = 30});
 }
