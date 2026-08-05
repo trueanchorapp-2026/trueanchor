@@ -16,9 +16,16 @@ import '../domain/journal_entry.dart';
 /// `extra`, so a bookmarked or refreshed `/journal/:id/edit` URL still works on
 /// web, where `extra` does not survive a reload.
 class JournalEditorPage extends ConsumerStatefulWidget {
-  const JournalEditorPage({this.entryId, super.key});
+  const JournalEditorPage({
+    this.entryId,
+    this.devotionalId,
+    this.initialType,
+    super.key,
+  });
 
   final String? entryId;
+  final String? devotionalId;
+  final EntryType? initialType;
 
   bool get isEditing => entryId != null;
 
@@ -31,7 +38,7 @@ class _JournalEditorPageState extends ConsumerState<JournalEditorPage> {
   final _title = TextEditingController();
   final _body = TextEditingController();
 
-  EntryType _type = EntryType.journal;
+  late EntryType _type;
 
   /// Null until the author ticks a box, or until an edited entry is hydrated.
   /// The fallback is [EntrySharing.none], which resolves against the author's
@@ -47,6 +54,12 @@ class _JournalEditorPageState extends ConsumerState<JournalEditorPage> {
   bool _hydrated = false;
   bool _saving = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _type = widget.initialType ?? EntryType.journal;
+  }
 
   @override
   void dispose() {
@@ -92,6 +105,7 @@ class _JournalEditorPageState extends ConsumerState<JournalEditorPage> {
           body: _body.text,
           entryType: _type,
           visibility: visibility,
+          devotionalId: widget.devotionalId,
         );
       } else {
         await notifier.edit(

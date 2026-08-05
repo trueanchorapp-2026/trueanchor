@@ -126,10 +126,23 @@ class _DevotionalScroll extends ConsumerWidget {
                         label: const Text('Log Love in Action'),
                       )
                     : null,
-                prayerChild: Text(
-                  'Take a moment to pray about what you read today. Ask God '
-                  'to help you live it out.',
-                  style: theme.textTheme.bodyLarge,
+                prayerChild: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Take a moment to pray about what you read today. Ask God '
+                      'to help you live it out.',
+                      style: theme.textTheme.bodyLarge,
+                    ),
+                    const SizedBox(height: AppTheme.space3),
+                    FilledButton.tonalIcon(
+                      onPressed: () => context.push(
+                        Routes.journalNewFor(type: 'prayer'),
+                      ),
+                      icon: const Icon(Icons.volunteer_activism_outlined),
+                      label: const Text('Write a Prayer'),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: AppTheme.space5),

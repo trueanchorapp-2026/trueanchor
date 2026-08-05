@@ -1,23 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_widgets.dart';
+import '../application/community_providers.dart';
+import 'join_community_page.dart';
 
-/// Placeholder Community page — adults only. Will show community news,
-/// discussions, events, and parent resources.
-class CommunityPage extends StatelessWidget {
+class CommunityPage extends ConsumerWidget {
   const CommunityPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return const SingleChildScrollView(
-      physics: AlwaysScrollableScrollPhysics(),
-      padding: EdgeInsets.all(AppTheme.space5),
-      child: EmptyState(
-        icon: Icons.diversity_3_outlined,
-        title: 'Community',
-        message: 'Community features are coming soon.',
-      ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final membership = ref.watch(myMembershipProvider);
+
+    return AsyncValueView(
+      value: membership,
+      onRetry: () => ref.invalidate(myMembershipProvider),
+      builder: (m) {
+        if (m == null) return const JoinCommunityPage();
+        return const SizedBox.shrink();
+      },
     );
   }
 }

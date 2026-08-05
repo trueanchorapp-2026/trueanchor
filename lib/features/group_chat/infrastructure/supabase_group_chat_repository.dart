@@ -22,9 +22,17 @@ class SupabaseGroupChatRepository implements GroupChatRepository {
   @override
   Future<List<ChatGroup>> fetchGroups() async {
     try {
+      final userId = _client.auth.currentUser!.id;
       final rows = await _client
           .from('chat_groups')
-          .select()
+          .select(
+            '*, chat_group_members!inner(last_read_at), '
+            'chat_messages(created_at)',
+          )
+          .eq('chat_group_members.profile_id', userId)
+          .order('created_at', ascending: false,
+              referencedTable: 'chat_messages')
+          .limit(1, referencedTable: 'chat_messages')
           .order('created_at', ascending: false);
       return rows.map(ChatGroup.fromJson).toList();
     } catch (error) {

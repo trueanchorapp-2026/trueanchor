@@ -56,15 +56,18 @@ class _GroupManagePageState extends ConsumerState<GroupManagePage> {
     }
   }
 
+  List<Profile> _availableYouth(List<Profile> youth) {
+    final members =
+        ref.read(groupMembersProvider(widget.groupId)).value ?? const [];
+    final memberIds = {for (final m in members) m.profileId};
+    return youth.where((p) => !memberIds.contains(p.id)).toList();
+  }
+
   Future<void> _addMember() async {
     final youth = await ref.read(addableYouthProvider.future);
     if (!mounted) return;
 
-    final members =
-        ref.read(groupMembersProvider(widget.groupId)).value ?? const [];
-    final memberIds = {for (final m in members) m.profileId};
-    final available = youth.where((p) => !memberIds.contains(p.id)).toList();
-
+    final available = _availableYouth(youth);
     if (available.isEmpty) {
       showAppSnack(context, 'All youth in your church are already in this group');
       return;
@@ -84,6 +87,53 @@ class _GroupManagePageState extends ConsumerState<GroupManagePage> {
       if (mounted) {
         showAppSnack(context, mapError(error).message, isError: true);
       }
+    }
+  }
+
+  Future<void> _addAll() async {
+    final youth = await ref.read(addableYouthProvider.future);
+    if (!mounted) return;
+
+    final available = _availableYouth(youth);
+    if (available.isEmpty) {
+      showAppSnack(context, 'All youth in your church are already in this group');
+      return;
+    }
+
+    final confirmed = await confirmDestructive(
+      context,
+      title: 'Add all ${available.length} youth?',
+      message: 'Every youth in your church will be added to this group.',
+      confirmLabel: 'Add all',
+    );
+    if (!confirmed || !mounted) return;
+
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+
+    var added = 0;
+    try {
+      for (final person in available) {
+        await ref.read(groupChatRepositoryProvider).addMember(
+              groupId: widget.groupId,
+              profileId: person.id,
+            );
+        added++;
+      }
+      ref.invalidate(groupMembersProvider(widget.groupId));
+      if (mounted) showAppSnack(context, '$added youth added');
+    } on Object catch (error) {
+      ref.invalidate(groupMembersProvider(widget.groupId));
+      if (mounted) {
+        final msg = added > 0
+            ? '$added added, then failed: ${mapError(error).message}'
+            : mapError(error).message;
+        showAppSnack(context, msg, isError: true);
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -177,7 +227,12 @@ class _GroupManagePageState extends ConsumerState<GroupManagePage> {
                 child: Text('Members', style: theme.textTheme.titleMedium),
               ),
               TextButton.icon(
-                onPressed: _addMember,
+                onPressed: _saving ? null : _addAll,
+                icon: const Icon(Icons.group_add),
+                label: const Text('Add all'),
+              ),
+              TextButton.icon(
+                onPressed: _saving ? null : _addMember,
                 icon: const Icon(Icons.person_add),
                 label: const Text('Add'),
               ),

@@ -41,6 +41,24 @@ class ChatGroupList extends AsyncNotifier<List<ChatGroup>> {
     final current = state.value ?? const <ChatGroup>[];
     state = AsyncData(current.where((g) => g.id != id).toList());
   }
+
+  void bumpRead(String groupId) {
+    final current = state.value;
+    if (current == null) return;
+    state = AsyncData([
+      for (final g in current)
+        if (g.id == groupId) g.withReadAt(DateTime.now()) else g,
+    ]);
+  }
+
+  void bumpSentMessage(String groupId, DateTime sentAt) {
+    final current = state.value;
+    if (current == null) return;
+    state = AsyncData([
+      for (final g in current)
+        if (g.id == groupId) g.withSentMessage(sentAt) else g,
+    ]);
+  }
 }
 
 final chatGroupListProvider =
@@ -74,6 +92,10 @@ class GroupMessages extends AsyncNotifier<List<ChatMessage>> {
         .send(groupId: groupId, body: trimmed);
     final current = state.value ?? const <ChatMessage>[];
     state = AsyncData([...current, sent]);
+    ref.read(chatGroupListProvider.notifier).bumpSentMessage(
+          groupId,
+          sent.createdAt,
+        );
   }
 
   Future<void> remove(String messageId) async {
@@ -94,6 +116,11 @@ final groupMembersProvider =
     FutureProvider.family<List<dynamic>, String>((ref, groupId) {
   ref.watch(currentUserIdProvider);
   return ref.watch(groupChatRepositoryProvider).fetchMembers(groupId);
+});
+
+final unreadGroupCountProvider = Provider<int>((ref) {
+  final groups = ref.watch(chatGroupListProvider).value ?? const [];
+  return groups.where((g) => g.isUnread).length;
 });
 
 final addableYouthProvider = FutureProvider<List<Profile>>((ref) async {

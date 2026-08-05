@@ -38,6 +38,7 @@ class _GroupChatPageState extends ConsumerState<GroupChatPage> {
     if (_markedRead) return;
     _markedRead = true;
     ref.read(groupChatRepositoryProvider).markRead(widget.groupId);
+    ref.read(chatGroupListProvider.notifier).bumpRead(widget.groupId);
   }
 
   void _openAtNewestOnce(List<ChatMessage> messages) {

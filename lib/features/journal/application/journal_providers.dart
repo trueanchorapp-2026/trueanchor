@@ -14,6 +14,7 @@ final journalRepositoryProvider = Provider<JournalRepository>(
 final devotionalReflectionProvider =
     FutureProvider.family<JournalEntry?, String>((ref, devotionalId) {
   ref.watch(currentUserIdProvider);
+  ref.watch(journalListProvider);
   return ref.watch(journalRepositoryProvider).fetchForDevotional(devotionalId);
 });
 

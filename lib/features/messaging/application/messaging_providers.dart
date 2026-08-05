@@ -2,7 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/supabase_providers.dart';
 import '../../church/application/church_providers.dart';
-import '../../group_chat/application/group_chat_providers.dart';
+import '../../group_chat/application/group_chat_providers.dart'
+    show chatGroupListProvider, unreadGroupCountProvider;
 import '../../profile/application/profile_providers.dart';
 import '../../profile/domain/profile.dart';
 import '../domain/message.dart';
@@ -187,9 +188,17 @@ final soloThreadProvider = Provider<MessageThread?>((ref) {
   return threads.length == 1 ? threads.first : null;
 });
 
-/// How many conversations have something new in them. Drives the nav badge.
+/// How many 1-on-1 conversations have something new in them.
 final unreadThreadCountProvider = Provider<int>((ref) {
   final userId = ref.watch(currentUserIdProvider);
   final threads = ref.watch(threadListProvider).value ?? const [];
   return threads.where((thread) => thread.isUnreadFor(userId)).length;
+});
+
+/// Total unread count across 1-on-1 threads and group chats. Drives the nav
+/// badge.
+final totalUnreadCountProvider = Provider<int>((ref) {
+  final threads = ref.watch(unreadThreadCountProvider);
+  final groups = ref.watch(unreadGroupCountProvider);
+  return threads + groups;
 });

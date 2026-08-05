@@ -70,6 +70,11 @@ const _sentinels = <String, String>{
   'HEAD_MUST_BE_AN_ADULT':
       'The head of household cannot be set to youth. Ask your church to move '
           'the household to someone else first.',
+  'YOUTH_NOT_ALLOWED': 'Community features are for adults only.',
+  'NOT_HEAD_OF_HOUSEHOLD':
+      'Only the head of household can join or leave a community for the family.',
+  'COMMUNITY_NOT_FOUND': 'That community does not exist.',
+  'MEMBERSHIP_NOT_FOUND': 'That membership was not found.',
 };
 
 String _mapAuth(AuthException error, String raw) {

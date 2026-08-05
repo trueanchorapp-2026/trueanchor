@@ -14,6 +14,14 @@ enum EntryType {
         (type) => type.wire == value,
         orElse: () => throw ArgumentError('Unknown entry_type: $value'),
       );
+
+  static EntryType? tryFromWire(String? value) {
+    if (value == null) return null;
+    for (final type in EntryType.values) {
+      if (type.wire == value) return type;
+    }
+    return null;
+  }
 }
 
 /// Mirrors the `public.entry_visibility` Postgres enum.

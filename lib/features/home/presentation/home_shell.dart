@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../messaging/application/messaging_providers.dart';
+import '../../messaging/application/messaging_providers.dart'
+    show totalUnreadCountProvider;
 import '../../profile/application/profile_providers.dart';
 import '../../profile/domain/user_role.dart';
 
@@ -100,7 +101,7 @@ class HomeShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(currentProfileProvider).value;
     final destinations = _destinationsFor(profile?.role);
-    final unread = ref.watch(unreadThreadCountProvider);
+    final unread = ref.watch(totalUnreadCountProvider);
 
     Widget iconFor(_Destination destination, {required bool selected}) {
       final icon =
@@ -117,9 +118,12 @@ class HomeShell extends ConsumerWidget {
 
     void onSelected(int selected) {
       final route = destinations[selected].route;
-      // For Discipleship, go to the default sub-tab.
-      final target =
-          route == '/discipleship' ? '/discipleship/today' : route;
+      // For shell sub-tabs, go to the default sub-tab.
+      final target = switch (route) {
+        '/discipleship' => '/discipleship/today',
+        '/community' => '/community/news',
+        _ => route,
+      };
       if (target != location) context.go(target);
     }
 

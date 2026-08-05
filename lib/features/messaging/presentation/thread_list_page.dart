@@ -360,6 +360,7 @@ class _GroupTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final unread = group.isUnread;
     return Card(
       margin: EdgeInsets.zero,
       child: ListTile(
@@ -367,8 +368,19 @@ class _GroupTile extends StatelessWidget {
           backgroundColor: theme.colorScheme.tertiaryContainer,
           child: Icon(Icons.groups, color: theme.colorScheme.onTertiaryContainer),
         ),
-        title: Text(group.name),
-        trailing: const Icon(Icons.chevron_right),
+        title: Text(
+          group.name,
+          style: unread
+              ? theme.textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w700)
+              : theme.textTheme.titleMedium,
+        ),
+        subtitle: group.lastMessageAt != null
+            ? Text(_when(group.lastMessageAt!))
+            : null,
+        trailing: unread
+            ? Icon(Icons.circle, size: 10, color: theme.colorScheme.primary)
+            : const Icon(Icons.chevron_right),
         onTap: () => context.push(Routes.groupChatFor(group.id)),
       ),
     );
