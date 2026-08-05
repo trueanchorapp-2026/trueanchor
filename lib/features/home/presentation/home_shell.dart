@@ -60,7 +60,7 @@ const _church = _Destination(
   selectedIcon: Icons.church,
 );
 const _events = _Destination(
-  route: '/events',
+  route: '/discipleship/events',
   label: 'Events',
   icon: Icons.event_outlined,
   selectedIcon: Icons.event,
@@ -76,6 +76,9 @@ class HomeShell extends ConsumerWidget {
   final String location;
 
   List<_Destination> _destinationsFor(UserRole? role) {
+    if (role == UserRole.regionalAdmin) {
+      return [_home, _community, _profile];
+    }
     if (role != null && role.isChurchStaff) {
       return [
         if (role.canViewEngagementDashboard) _dashboard,

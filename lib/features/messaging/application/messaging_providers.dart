@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/supabase_providers.dart';
 import '../../church/application/church_providers.dart';
+import '../../group_chat/application/group_chat_providers.dart';
 import '../../profile/application/profile_providers.dart';
 import '../../profile/domain/profile.dart';
 import '../domain/message.dart';
@@ -178,6 +179,9 @@ final soloThreadProvider = Provider<MessageThread?>((ref) {
 
   final pastors = ref.watch(churchYouthPastorsProvider).value;
   if (pastors == null || pastors.length != 1) return null;
+
+  final groups = ref.watch(chatGroupListProvider).value ?? const [];
+  if (groups.isNotEmpty) return null;
 
   final threads = ref.watch(threadListProvider).value ?? const [];
   return threads.length == 1 ? threads.first : null;

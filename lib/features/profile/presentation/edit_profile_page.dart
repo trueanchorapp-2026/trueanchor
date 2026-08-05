@@ -9,6 +9,7 @@ import '../../auth/presentation/auth_form_fields.dart';
 import '../../milestones/application/milestone_providers.dart';
 import '../application/profile_providers.dart';
 import '../domain/profile.dart';
+import '../domain/us_states.dart';
 import '../domain/user_role.dart';
 
 /// Edits the signed-in user's own profile, or — when [memberId] is set — a
@@ -35,7 +36,9 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
   final _phone = TextEditingController();
   final _grade = TextEditingController();
   final _gender = TextEditingController();
+  final _city = TextEditingController();
 
+  String? _selectedState;
   DateTime? _birthDate;
   DateTime? _baptizedOn;
   bool _baptized = false;
@@ -51,6 +54,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
     _phone.dispose();
     _grade.dispose();
     _gender.dispose();
+    _city.dispose();
     super.dispose();
   }
 
@@ -63,6 +67,8 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
     _phone.text = profile.phone ?? '';
     _grade.text = profile.grade?.toString() ?? '';
     _gender.text = profile.gender ?? '';
+    _city.text = profile.city ?? '';
+    _selectedState = usStates.contains(profile.state) ? profile.state : null;
     _birthDate = profile.birthDate;
     _baptizedOn = profile.baptizedOn;
     _baptized = profile.baptized;
@@ -84,6 +90,8 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
       gender: _gender.text.trim(),
       grade: gradeText.isEmpty ? null : int.tryParse(gradeText),
       clearGrade: gradeText.isEmpty,
+      city: _city.text.trim().isEmpty ? null : _city.text.trim(),
+      state: _selectedState,
       birthDate: _birthDate,
       clearBirthDate: _birthDate == null,
       baptized: _baptized,
@@ -208,6 +216,36 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                     labelText: 'Phone (optional)',
                     prefixIcon: Icon(Icons.phone_outlined),
                   ),
+                ),
+                const SizedBox(height: AppTheme.space5),
+                Text(
+                  'Location',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: AppTheme.space3),
+                TextFormField(
+                  controller: _city,
+                  enabled: !_saving,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(
+                    labelText: 'City (optional)',
+                    prefixIcon: Icon(Icons.location_city_outlined),
+                  ),
+                ),
+                const SizedBox(height: AppTheme.space4),
+                DropdownButtonFormField<String>(
+                  initialValue: _selectedState,
+                  decoration: const InputDecoration(
+                    labelText: 'State (optional)',
+                    prefixIcon: Icon(Icons.map_outlined),
+                  ),
+                  items: [
+                    for (final state in usStates)
+                      DropdownMenuItem(value: state, child: Text(state)),
+                  ],
+                  onChanged: _saving
+                      ? null
+                      : (value) => setState(() => _selectedState = value),
                 ),
                 if (isYouth) ...[
                   const SizedBox(height: AppTheme.space5),

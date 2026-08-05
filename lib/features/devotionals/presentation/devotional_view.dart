@@ -15,6 +15,8 @@ class DevotionalView extends StatelessWidget {
   const DevotionalView({
     required this.devotional,
     this.inwardChild,
+    this.outwardChild,
+    this.prayerChild,
     super.key,
   });
 
@@ -23,6 +25,12 @@ class DevotionalView extends StatelessWidget {
   /// Slot for the interactive Inward Reflection card, inserted between the
   /// prompts and the Outward section.
   final Widget? inwardChild;
+
+  /// Slot rendered below the Outward text (e.g. a "Log Love in Action" button).
+  final Widget? outwardChild;
+
+  /// Slot rendered after the Outward section for prayer content.
+  final Widget? prayerChild;
 
   @override
   Widget build(BuildContext context) {
@@ -84,6 +92,18 @@ class DevotionalView extends StatelessWidget {
           _SectionHeader(icon: Icons.diversity_3_outlined, label: 'Outward'),
           const SizedBox(height: AppTheme.space3),
           Text(devotional.outwardText!, style: theme.textTheme.bodyLarge),
+          if (outwardChild != null) ...[
+            const SizedBox(height: AppTheme.space3),
+            outwardChild!,
+          ],
+          const SizedBox(height: AppTheme.space5),
+        ],
+
+        // — Prayer —
+        if (prayerChild != null) ...[
+          _SectionHeader(icon: Icons.volunteer_activism_outlined, label: 'Prayer'),
+          const SizedBox(height: AppTheme.space3),
+          prayerChild!,
           const SizedBox(height: AppTheme.space5),
         ],
 

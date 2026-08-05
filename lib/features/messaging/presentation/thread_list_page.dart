@@ -8,6 +8,9 @@ import '../../../core/providers/supabase_providers.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_widgets.dart';
+import '../../group_chat/application/group_chat_providers.dart';
+import '../../group_chat/domain/chat_group.dart';
+import '../../group_chat/presentation/create_group_dialog.dart';
 import '../../profile/application/profile_providers.dart';
 import '../application/messaging_providers.dart';
 import '../domain/message_thread.dart';
@@ -117,23 +120,81 @@ class ThreadListPage extends ConsumerWidget {
       await openWith(chosen.id);
     }
 
+    Future<void> createGroup() async {
+      final name = await showCreateGroupDialog(context);
+      if (name == null || !context.mounted) return;
+      try {
+        final group =
+            await ref.read(chatGroupListProvider.notifier).create(name);
+        if (context.mounted) {
+          context.push(Routes.groupChatFor(group.id));
+        }
+      } on Object catch (error) {
+        if (context.mounted) {
+          showAppSnack(context, mapError(error).message, isError: true);
+        }
+      }
+    }
+
+    Future<void> pastorCompose() async {
+      final action = await showModalBottomSheet<String>(
+        context: context,
+        showDragHandle: true,
+        builder: (context) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.person),
+                title: const Text('Direct message'),
+                onTap: () => Navigator.of(context).pop('dm'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.groups),
+                title: const Text('New group'),
+                onTap: () => Navigator.of(context).pop('group'),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (action == null || !context.mounted) return;
+      if (action == 'dm') {
+        await composeToMember();
+      } else {
+        await createGroup();
+      }
+    }
+
+    final canCreateGroup = role?.canCreateGroupChat ?? false;
+    final groups = ref.watch(chatGroupListProvider).value ?? const <ChatGroup>[];
+
     return Scaffold(
       floatingActionButton: canStart
           ? FloatingActionButton.extended(
-              onPressed: isMember ? composeToPastor : composeToMember,
+              onPressed: isMember
+                  ? composeToPastor
+                  : (canCreateGroup ? pastorCompose : composeToMember),
               icon: const Icon(Icons.edit_outlined),
               label: Text(isMember ? 'Message' : 'New message'),
             )
           : null,
       body: RefreshIndicator(
-        onRefresh: () => ref.read(threadListProvider.notifier).refresh(),
+        onRefresh: () async {
+          await ref.read(threadListProvider.notifier).refresh();
+          await ref.read(chatGroupListProvider.notifier).refresh();
+        },
         child: AsyncValueView(
           value: threadsState,
           onRetry: () => ref.read(threadListProvider.notifier).refresh(),
           builder: (threads) {
-            if (threads.isEmpty) {
+            if (threads.isEmpty && groups.isEmpty) {
               return _EmptyInbox(isMember: isMember);
             }
+            final hasGroups = groups.isNotEmpty;
+            // disclosure + threads + optional header + groups
+            final itemCount =
+                1 + threads.length + (hasGroups ? 1 + groups.length : 0);
             return ListView.separated(
               padding: const EdgeInsets.fromLTRB(
                 AppTheme.space4,
@@ -141,7 +202,7 @@ class ThreadListPage extends ConsumerWidget {
                 AppTheme.space4,
                 96, // clears the FAB
               ),
-              itemCount: threads.length + 1,
+              itemCount: itemCount,
               separatorBuilder: (_, _) =>
                   const SizedBox(height: AppTheme.space2),
               itemBuilder: (context, index) {
@@ -151,10 +212,25 @@ class ThreadListPage extends ConsumerWidget {
                     child: MessagingDisclosure(),
                   );
                 }
-                return _ThreadTile(
-                  thread: threads[index - 1],
-                  userId: userId,
-                );
+                final threadIndex = index - 1;
+                if (threadIndex < threads.length) {
+                  return _ThreadTile(
+                    thread: threads[threadIndex],
+                    userId: userId,
+                  );
+                }
+                final groupOffset = threadIndex - threads.length;
+                if (groupOffset == 0 && hasGroups) {
+                  return Padding(
+                    padding: const EdgeInsets.only(top: AppTheme.space3),
+                    child: Text(
+                      'Groups',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                  );
+                }
+                final groupIndex = groupOffset - 1;
+                return _GroupTile(group: groups[groupIndex]);
               },
             );
           },
@@ -271,6 +347,29 @@ class _ThreadTile extends StatelessWidget {
             ? Icon(Icons.circle, size: 10, color: theme.colorScheme.primary)
             : const Icon(Icons.chevron_right),
         onTap: () => context.push(Routes.messageThreadFor(thread.id)),
+      ),
+    );
+  }
+}
+
+class _GroupTile extends StatelessWidget {
+  const _GroupTile({required this.group});
+
+  final ChatGroup group;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      margin: EdgeInsets.zero,
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: theme.colorScheme.tertiaryContainer,
+          child: Icon(Icons.groups, color: theme.colorScheme.onTertiaryContainer),
+        ),
+        title: Text(group.name),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => context.push(Routes.groupChatFor(group.id)),
       ),
     );
   }

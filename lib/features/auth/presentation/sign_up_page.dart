@@ -71,7 +71,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
         child: ContentColumn(
           children: [
             Text(
-              'Your church code decides which church you join and what you '
+              'Your invite code decides which church you join and what you '
               'can see. Ask your church for one if you do not have it.',
               style: theme.textTheme.bodyMedium
                   ?.copyWith(color: theme.colorScheme.onSurfaceVariant),

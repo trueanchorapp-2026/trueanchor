@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_widgets.dart';
+import '../../profile/application/profile_providers.dart';
 import '../../progress/presentation/progress_check_card.dart';
 import '../application/devotional_providers.dart';
 import '../domain/devotional.dart';
@@ -75,16 +78,18 @@ class _EmptyDay extends StatelessWidget {
   }
 }
 
-class _DevotionalScroll extends StatelessWidget {
+class _DevotionalScroll extends ConsumerWidget {
   const _DevotionalScroll({required this.devotional});
 
   final Devotional devotional;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final today = DateTime.now();
     final isToday = devotional.isForToday(today);
+    final profile = ref.watch(currentProfileProvider).value;
+    final isYouth = profile?.role.canTrackRelationships ?? false;
 
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -113,6 +118,18 @@ class _DevotionalScroll extends StatelessWidget {
                 devotional: devotional,
                 inwardChild: InwardReflectionCard(
                   devotionalId: devotional.id,
+                ),
+                outwardChild: isYouth
+                    ? FilledButton.tonalIcon(
+                        onPressed: () => context.go(Routes.relationships),
+                        icon: const Icon(Icons.favorite_outline),
+                        label: const Text('Log Love in Action'),
+                      )
+                    : null,
+                prayerChild: Text(
+                  'Take a moment to pray about what you read today. Ask God '
+                  'to help you live it out.',
+                  style: theme.textTheme.bodyLarge,
                 ),
               ),
               const SizedBox(height: AppTheme.space5),

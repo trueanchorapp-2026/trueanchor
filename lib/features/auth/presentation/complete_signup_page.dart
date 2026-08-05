@@ -6,6 +6,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../../profile/application/profile_providers.dart';
 import '../application/auth_providers.dart';
+import '../../profile/domain/user_role.dart';
 import '../domain/auth_repository.dart';
 import 'auth_form_fields.dart';
 import 'invite_code_field.dart';
@@ -60,11 +61,22 @@ class _CompleteSignUpPageState extends ConsumerState<CompleteSignUpPage> {
     if (!_formKey.currentState!.validate()) return;
     if (_preview == null) return;
 
-    final ok = await ref.read(authControllerProvider.notifier).claimInvite(
-          firstName: _firstName.text,
-          lastName: _lastName.text,
-          code: _inviteCode.text,
-        );
+    final bool ok;
+    if (_preview!.role == UserRole.regionalAdmin) {
+      ok = await ref
+          .read(authControllerProvider.notifier)
+          .claimRegionalInvite(
+            firstName: _firstName.text,
+            lastName: _lastName.text,
+            code: _inviteCode.text,
+          );
+    } else {
+      ok = await ref.read(authControllerProvider.notifier).claimInvite(
+            firstName: _firstName.text,
+            lastName: _lastName.text,
+            code: _inviteCode.text,
+          );
+    }
     if (!ok) return;
 
     // The profile now exists; re-read it so the router's redirect ladder can
@@ -97,8 +109,8 @@ class _CompleteSignUpPageState extends ConsumerState<CompleteSignUpPage> {
           children: [
             Text(
               email == null
-                  ? "You're signed in. Enter your church code to finish."
-                  : "You're signed in as $email. Enter your church code to "
+                  ? "You're signed in. Enter your invite code to finish."
+                  : "You're signed in as $email. Enter your invite code to "
                       'finish setting up your account.',
               style: theme.textTheme.bodyMedium
                   ?.copyWith(color: theme.colorScheme.onSurfaceVariant),

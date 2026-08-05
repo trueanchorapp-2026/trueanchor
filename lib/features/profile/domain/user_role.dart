@@ -4,6 +4,7 @@
 /// written to and read from the database.
 enum UserRole {
   appAdmin('app_admin', 'App Admin'),
+  regionalAdmin('regional_admin', 'Regional Admin'),
   churchAdmin('church_admin', 'Church Admin'),
   youthPastor('youth_pastor', 'Youth Pastor'),
   parent('parent', 'Parent'),
@@ -66,4 +67,13 @@ enum UserRole {
   /// pastoral care.
   bool get canViewEngagementDashboard =>
       this == UserRole.youthPastor || this == UserRole.appAdmin;
+
+  bool get canTrackRelationships => this == UserRole.youth;
+
+  bool get canCreateGroupChat => this == UserRole.youthPastor;
+
+  bool get isRegionalAdmin => this == UserRole.regionalAdmin;
+
+  bool get canManageRegions =>
+      this == UserRole.regionalAdmin || this == UserRole.appAdmin;
 }

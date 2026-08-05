@@ -30,6 +30,9 @@ class DiscipleshipShell extends ConsumerWidget {
       const _SubTab(route: '/discipleship/history', label: 'History'),
       if (role != null && role.canUseMessaging)
         const _SubTab(route: '/discipleship/messages', label: 'Messages'),
+      if (role != null && role.canTrackRelationships)
+        const _SubTab(
+            route: '/discipleship/relationships', label: 'Love in Action'),
       const _SubTab(route: '/discipleship/milestones', label: 'Milestones'),
       const _SubTab(route: '/discipleship/events', label: 'Events'),
     ];

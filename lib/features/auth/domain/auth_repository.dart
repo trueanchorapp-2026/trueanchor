@@ -4,12 +4,12 @@ import '../../profile/domain/user_role.dart';
 /// user commits, so they can see which church and role they are joining.
 class InvitePreview {
   const InvitePreview({
-    required this.churchId,
+    this.churchId,
     required this.churchName,
     required this.role,
   });
 
-  final String churchId;
+  final String? churchId;
   final String churchName;
   final UserRole role;
 }
@@ -42,6 +42,14 @@ abstract interface class AuthRepository {
   /// OAuth path, where the signup trigger could not create the profile because
   /// no code was present at sign-in. Fails if a profile already exists.
   Future<void> claimInvite({
+    required String firstName,
+    required String lastName,
+    required String code,
+  });
+
+  /// Turns a regional invite code into the caller's profile row. Used only on
+  /// the OAuth path for regional admins, who have no church.
+  Future<void> claimRegionalInvite({
     required String firstName,
     required String lastName,
     required String code,

@@ -88,6 +88,8 @@ class _ProfileBody extends ConsumerWidget {
                 _InfoRow(label: 'Phone', value: profile.phone!),
               if (family != null)
                 _InfoRow(label: 'Family', value: family.name),
+              if (profile.locationDisplay.isNotEmpty)
+                _InfoRow(label: 'Location', value: profile.locationDisplay),
               if (isYouth) ...[
                 if (age != null) _InfoRow(label: 'Age', value: '$age'),
                 if (profile.grade != null)

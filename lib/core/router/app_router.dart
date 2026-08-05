@@ -22,10 +22,16 @@ import '../../features/home/presentation/home_page.dart';
 import '../../features/home/presentation/home_shell.dart';
 import '../../features/journal/presentation/journal_editor_page.dart';
 import '../../features/journal/presentation/journal_list_page.dart';
+import '../../features/group_chat/presentation/group_chat_page.dart';
+import '../../features/group_chat/presentation/group_manage_page.dart';
 import '../../features/messaging/presentation/thread_list_page.dart';
 import '../../features/messaging/presentation/thread_page.dart';
 import '../../features/milestones/presentation/milestone_editor_page.dart';
 import '../../features/milestones/presentation/milestone_list_page.dart';
+import '../../features/relationships/presentation/interaction_editor_page.dart';
+import '../../features/relationships/presentation/relationship_detail_page.dart';
+import '../../features/relationships/presentation/relationship_editor_page.dart';
+import '../../features/relationships/presentation/relationship_list_page.dart';
 import '../../features/profile/application/profile_providers.dart';
 import '../../features/profile/domain/user_role.dart';
 import '../../features/profile/presentation/edit_profile_page.dart';
@@ -52,6 +58,9 @@ abstract final class Routes {
   static const milestones = '/discipleship/milestones';
   static const events = '/discipleship/events';
 
+  // Discipleship sub-tabs (cont.)
+  static const relationships = '/discipleship/relationships';
+
   // Drill-down routes
   static const journalNew = '/journal/new';
   static const journalEdit = '/journal/:id/edit';
@@ -59,6 +68,12 @@ abstract final class Routes {
   static const eventEditor = '/events/editor';
   static const messageThread = '/messages/thread/:id';
   static const milestoneNew = '/milestones/new';
+  static const relationshipNew = '/relationships/new';
+  static const relationshipDetail = '/relationships/:id';
+  static const relationshipEdit = '/relationships/:id/edit';
+  static const interactionNew = '/relationships/:id/interaction/new';
+  static const groupChat = '/messages/group/:id';
+  static const groupManage = '/messages/group/:id/manage';
   static const dashboard = '/dashboard';
   static const dashboardYouth = '/dashboard/youth/:id';
   static const editProfile = '/profile/edit';
@@ -78,6 +93,18 @@ abstract final class Routes {
 
   static String editMemberFor(String memberId) =>
       '/family/member/$memberId/edit';
+
+  static String relationshipDetailFor(String id) => '/relationships/$id';
+
+  static String relationshipEditFor(String id) => '/relationships/$id/edit';
+
+  static String interactionNewFor(String relationshipId) =>
+      '/relationships/$relationshipId/interaction/new';
+
+  static String groupChatFor(String groupId) => '/messages/group/$groupId';
+
+  static String groupManageFor(String groupId) =>
+      '/messages/group/$groupId/manage';
 }
 
 class _RouterRefresh extends ChangeNotifier {
@@ -146,10 +173,18 @@ final routerProvider = Provider<GoRouter>((ref) {
         return _homeFor(profile.role);
       }
 
-      // Messaging guard — covers both the inbox and thread drill-down.
+      // Messaging guard — covers inbox, thread drill-down, and group chat.
       if ((location.startsWith(Routes.messages) ||
-              location.startsWith('/messages/thread')) &&
+              location.startsWith('/messages/thread') ||
+              location.startsWith('/messages/group')) &&
           !profile.role.canUseMessaging) {
+        return _homeFor(profile.role);
+      }
+
+      // Relationships tracker is youth-only.
+      if ((location.startsWith(Routes.relationships) ||
+              location.startsWith('/relationships')) &&
+          !profile.role.canTrackRelationships) {
         return _homeFor(profile.role);
       }
 
@@ -220,6 +255,35 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) =>
             ThreadPage(threadId: state.pathParameters['id']!),
       ),
+      GoRoute(
+        path: Routes.groupChat,
+        builder: (context, state) =>
+            GroupChatPage(groupId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: Routes.groupManage,
+        builder: (context, state) =>
+            GroupManagePage(groupId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: Routes.relationshipNew,
+        builder: (context, state) => const RelationshipEditorPage(),
+      ),
+      GoRoute(
+        path: Routes.relationshipEdit,
+        builder: (context, state) => RelationshipEditorPage(
+            relationshipId: state.pathParameters['id']),
+      ),
+      GoRoute(
+        path: Routes.relationshipDetail,
+        builder: (context, state) => RelationshipDetailPage(
+            relationshipId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: Routes.interactionNew,
+        builder: (context, state) => InteractionEditorPage(
+            relationshipId: state.pathParameters['id']!),
+      ),
       // Main shell with 4 tabs.
       ShellRoute(
         builder: (context, state, child) =>
@@ -248,6 +312,11 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/discipleship/messages',
                 builder: (context, state) => const ThreadListPage(),
+              ),
+              GoRoute(
+                path: Routes.relationships,
+                builder: (context, state) =>
+                    const RelationshipListPage(),
               ),
               GoRoute(
                 path: '/discipleship/milestones',
@@ -284,10 +353,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.journal,
             builder: (context, state) => const JournalListPage(),
           ),
-          GoRoute(
-            path: Routes.events,
-            builder: (context, state) => const EventListPage(),
-          ),
         ],
       ),
     ],
@@ -297,5 +362,6 @@ final routerProvider = Provider<GoRouter>((ref) {
 String _homeFor(UserRole role) => switch (role) {
       _ when role.canViewEngagementDashboard => Routes.dashboard,
       _ when role.isChurchStaff => Routes.church,
+      _ when role.isRegionalAdmin => Routes.home,
       _ => Routes.today,
     };
