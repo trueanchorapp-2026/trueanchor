@@ -35,7 +35,8 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
   final _lastName = TextEditingController();
   final _phone = TextEditingController();
   final _grade = TextEditingController();
-  final _gender = TextEditingController();
+  static const _genderOptions = ['Male', 'Female'];
+  String? _selectedGender;
   final _city = TextEditingController();
 
   String? _selectedState;
@@ -53,7 +54,6 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
     _lastName.dispose();
     _phone.dispose();
     _grade.dispose();
-    _gender.dispose();
     _city.dispose();
     super.dispose();
   }
@@ -66,7 +66,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
     _lastName.text = profile.lastName;
     _phone.text = profile.phone ?? '';
     _grade.text = profile.grade?.toString() ?? '';
-    _gender.text = profile.gender ?? '';
+    _selectedGender = _genderOptions.contains(profile.gender) ? profile.gender : null;
     _city.text = profile.city ?? '';
     _selectedState = usStates.contains(profile.state) ? profile.state : null;
     _birthDate = profile.birthDate;
@@ -87,7 +87,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
       firstName: _firstName.text.trim(),
       lastName: _lastName.text.trim(),
       phone: _phone.text.trim(),
-      gender: _gender.text.trim(),
+      gender: _selectedGender,
       grade: gradeText.isEmpty ? null : int.tryParse(gradeText),
       clearGrade: gradeText.isEmpty,
       city: _city.text.trim().isEmpty ? null : _city.text.trim(),
@@ -285,14 +285,19 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                     },
                   ),
                   const SizedBox(height: AppTheme.space4),
-                  TextFormField(
-                    controller: _gender,
-                    enabled: !_saving,
-                    textCapitalization: TextCapitalization.words,
+                  DropdownButtonFormField<String>(
+                    initialValue: _selectedGender,
                     decoration: const InputDecoration(
                       labelText: 'Gender (optional)',
                       prefixIcon: Icon(Icons.person_outline),
                     ),
+                    items: [
+                      for (final option in _genderOptions)
+                        DropdownMenuItem(value: option, child: Text(option)),
+                    ],
+                    onChanged: _saving
+                        ? null
+                        : (value) => setState(() => _selectedGender = value),
                   ),
                   const SizedBox(height: AppTheme.space3),
                   SwitchListTile(

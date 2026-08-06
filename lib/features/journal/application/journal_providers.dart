@@ -10,14 +10,6 @@ final journalRepositoryProvider = Provider<JournalRepository>(
   (ref) => SupabaseJournalRepository(ref.watch(supabaseClientProvider)),
 );
 
-/// The signed-in user's Inward Reflection for a specific devotional.
-final devotionalReflectionProvider =
-    FutureProvider.family<JournalEntry?, String>((ref, devotionalId) {
-  ref.watch(currentUserIdProvider);
-  ref.watch(journalListProvider);
-  return ref.watch(journalRepositoryProvider).fetchForDevotional(devotionalId);
-});
-
 /// Whether the signed-in user's church has a youth pastor, which decides
 /// whether the "+ pastor" rungs reach anyone at all.
 final churchHasYouthPastorProvider = FutureProvider<bool>((ref) {

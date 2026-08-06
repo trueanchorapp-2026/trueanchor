@@ -211,25 +211,27 @@ class _JournalEditorPageState extends ConsumerState<JournalEditorPage> {
       key: _formKey,
       child: ContentColumn(
         children: [
-          SegmentedButton<EntryType>(
-            segments: const [
-              ButtonSegment(
-                value: EntryType.journal,
-                icon: Icon(Icons.edit_note_outlined),
-                label: Text('Journal'),
-              ),
-              ButtonSegment(
-                value: EntryType.prayer,
-                icon: Icon(Icons.volunteer_activism_outlined),
-                label: Text('Prayer'),
-              ),
-            ],
-            selected: {_type},
-            onSelectionChanged: _saving
-                ? null
-                : (selection) => setState(() => _type = selection.first),
-          ),
-          const SizedBox(height: AppTheme.space5),
+          if (widget.devotionalId == null && widget.initialType == null) ...[
+            SegmentedButton<EntryType>(
+              segments: const [
+                ButtonSegment(
+                  value: EntryType.journal,
+                  icon: Icon(Icons.edit_note_outlined),
+                  label: Text('Journal'),
+                ),
+                ButtonSegment(
+                  value: EntryType.prayer,
+                  icon: Icon(Icons.volunteer_activism_outlined),
+                  label: Text('Prayer'),
+                ),
+              ],
+              selected: {_type},
+              onSelectionChanged: _saving
+                  ? null
+                  : (selection) => setState(() => _type = selection.first),
+            ),
+            const SizedBox(height: AppTheme.space5),
+          ],
           TextFormField(
             controller: _title,
             enabled: !_saving,

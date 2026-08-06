@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/providers/supabase_providers.dart';
 import '../../journal/application/journal_providers.dart';
 import '../../journal/domain/journal_entry.dart';
 import '../../profile/application/profile_providers.dart';
@@ -15,13 +16,15 @@ class InwardReflectionCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final reflection = ref.watch(devotionalReflectionProvider(devotionalId));
     final profile = ref.watch(currentProfileProvider).value;
     if (profile == null || !profile.role.tracksDailyProgress) {
       return const SizedBox.shrink();
     }
 
-    return reflection.when(
+    final entriesState = ref.watch(journalListProvider);
+    final userId = ref.watch(currentUserIdProvider);
+
+    return entriesState.when(
       loading: () => const Center(
         child: Padding(
           padding: EdgeInsets.all(AppTheme.space4),
@@ -29,14 +32,25 @@ class InwardReflectionCard extends ConsumerWidget {
         ),
       ),
       error: (_, _) => const SizedBox.shrink(),
-      data: (entry) {
-        if (entry != null) return _SavedReflection(entry: entry);
+      data: (entries) {
+        final entry = entries
+            .where((e) =>
+                e.devotionalId == devotionalId && e.authorId == userId)
+            .firstOrNull;
+
+        if (entry != null) {
+          return _SavedReflection(
+            entry: entry,
+            onEdit: () => context.push(Routes.journalEditFor(entry.id)),
+          );
+        }
+
         return FilledButton.tonalIcon(
           onPressed: () => context.push(
             Routes.journalNewFor(devotionalId: devotionalId, type: 'journal'),
           ),
           icon: const Icon(Icons.edit_note_outlined),
-          label: const Text('Journal'),
+          label: const Text('Write your reflection'),
         );
       },
     );
@@ -44,9 +58,10 @@ class InwardReflectionCard extends ConsumerWidget {
 }
 
 class _SavedReflection extends StatelessWidget {
-  const _SavedReflection({required this.entry});
+  const _SavedReflection({required this.entry, required this.onEdit});
 
   final JournalEntry entry;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -63,18 +78,14 @@ class _SavedReflection extends StatelessWidget {
             Row(
               children: [
                 Icon(
-                  entry.entryType == EntryType.prayer
-                      ? Icons.volunteer_activism_outlined
-                      : Icons.edit_note_outlined,
+                  Icons.edit_note_outlined,
                   size: 18,
                   color: scheme.primary,
                 ),
                 const SizedBox(width: AppTheme.space2),
                 Expanded(
                   child: Text(
-                    entry.entryType == EntryType.prayer
-                        ? 'Your prayer'
-                        : 'Your reflection',
+                    'Your reflection',
                     style: theme.textTheme.labelLarge?.copyWith(
                       color: scheme.primary,
                     ),
@@ -82,8 +93,7 @@ class _SavedReflection extends StatelessWidget {
                 ),
                 IconButton(
                   icon: const Icon(Icons.edit_outlined, size: 18),
-                  onPressed: () =>
-                      context.push(Routes.journalEditFor(entry.id)),
+                  onPressed: onEdit,
                   tooltip: 'Edit',
                   visualDensity: VisualDensity.compact,
                 ),

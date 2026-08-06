@@ -70,6 +70,7 @@ abstract final class Routes {
 
   // Discipleship sub-tabs (cont.)
   static const relationships = '/discipleship/relationships';
+  static const discipleshipJournal = '/discipleship/journal';
 
   // Community sub-tabs
   static const communityNews = '/community/news';
@@ -382,6 +383,10 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: Routes.devotionalHistory,
                 builder: (context, state) =>
                     const DevotionalHistoryPage(),
+              ),
+              GoRoute(
+                path: Routes.discipleshipJournal,
+                builder: (context, state) => const JournalListPage(),
               ),
               GoRoute(
                 path: '/discipleship/messages',
