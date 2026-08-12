@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/router/app_router.dart';
 import '../../messaging/application/messaging_providers.dart'
     show totalUnreadCountProvider;
 import '../../profile/application/profile_providers.dart';
@@ -118,10 +119,14 @@ class HomeShell extends ConsumerWidget {
 
     void onSelected(int selected) {
       final route = destinations[selected].route;
-      // For shell sub-tabs, go to the default sub-tab.
+      // For shell sub-tabs, go to the default sub-tab. A regional admin has no
+      // community membership, so News would greet them with "not in a
+      // community" — their default is the surface they actually manage.
       final target = switch (route) {
         '/discipleship' => '/discipleship/today',
-        '/community' => '/community/news',
+        '/community' => profile?.role.canManageRegions == true
+            ? Routes.communityManage
+            : Routes.communityNews,
         _ => route,
       };
       if (target != location) context.go(target);

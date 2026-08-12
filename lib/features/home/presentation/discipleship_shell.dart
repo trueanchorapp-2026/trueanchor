@@ -31,11 +31,12 @@ class DiscipleshipShell extends ConsumerWidget {
       const _SubTab(route: '/discipleship/journal', label: 'Journal'),
       if (role != null && role.canUseMessaging)
         const _SubTab(route: '/discipleship/messages', label: 'Messages'),
-      if (role != null && role.canTrackRelationships)
+      if (role != null && role.canViewRelationships)
         const _SubTab(
             route: '/discipleship/relationships', label: 'Love in Action'),
+      if (role != null && role.canViewYouthSummary)
+        const _SubTab(route: '/discipleship/my-youth', label: 'My Youth'),
       const _SubTab(route: '/discipleship/milestones', label: 'Milestones'),
-      const _SubTab(route: '/discipleship/events', label: 'Events'),
     ];
   }
 

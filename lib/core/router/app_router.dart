@@ -20,7 +20,9 @@ import '../../features/community/presentation/community_shell.dart';
 import '../../features/devotionals/presentation/devotional_history_page.dart';
 import '../../features/devotionals/presentation/today_page.dart';
 import '../../features/engagement/presentation/engagement_dashboard_page.dart';
+import '../../features/engagement/presentation/family_summary_page.dart';
 import '../../features/engagement/presentation/youth_engagement_detail_page.dart';
+import '../../features/engagement/presentation/youth_summary_page.dart';
 import '../../features/events/domain/event.dart';
 import '../../features/events/presentation/event_editor_page.dart';
 import '../../features/events/presentation/event_list_page.dart';
@@ -71,6 +73,12 @@ abstract final class Routes {
   // Discipleship sub-tabs (cont.)
   static const relationships = '/discipleship/relationships';
   static const discipleshipJournal = '/discipleship/journal';
+  static const myYouth = '/discipleship/my-youth';
+
+  /// The drill-down under [myYouth]. Registered outside the shell — it has its
+  /// own app bar and back arrow, so the sub-tab chips would be misleading. The
+  /// shared prefix is deliberate: one `startsWith` guards both.
+  static const myYouthDetail = '/discipleship/my-youth/:id';
 
   // Community sub-tabs
   static const communityNews = '/community/news';
@@ -124,6 +132,9 @@ abstract final class Routes {
 
   static String dashboardYouthFor(String profileId) =>
       '/dashboard/youth/$profileId';
+
+  static String myYouthDetailFor(String profileId) =>
+      '/discipleship/my-youth/$profileId';
 
   static String editMemberFor(String memberId) =>
       '/family/member/$memberId/edit';
@@ -221,16 +232,41 @@ final routerProvider = Provider<GoRouter>((ref) {
         return _homeFor(profile.role);
       }
 
-      // Relationships tracker is youth-only.
-      if ((location.startsWith(Routes.relationships) ||
-              location.startsWith('/relationships')) &&
-          !profile.role.canTrackRelationships) {
+      // Love in Action: the youth authors, their household adults and youth
+      // pastor read. Authoring routes stay youth-only — a parent who can see a
+      // shared relationship still cannot add to or edit it.
+      final isRelationshipRoute = location.startsWith(Routes.relationships) ||
+          location.startsWith('/relationships');
+      final isRelationshipWrite = location == Routes.relationshipNew ||
+          location.endsWith('/edit') && location.startsWith('/relationships/') ||
+          location.contains('/interaction/new');
+
+      if (isRelationshipRoute &&
+          (isRelationshipWrite
+              ? !profile.role.canTrackRelationships
+              : !profile.role.canViewRelationships)) {
+        return _homeFor(profile.role);
+      }
+
+      // My Youth is the parent's household view. Mirrors the parent branch in
+      // `youth_weekly_summary()`, which scopes on family_id — a pastor's
+      // church-wide equivalent is the engagement dashboard.
+      if (location.startsWith(Routes.myYouth) &&
+          !profile.role.canViewYouthSummary) {
         return _homeFor(profile.role);
       }
 
       // Community is adults-only.
       if (location.startsWith(Routes.community) &&
           profile.role == UserRole.youth) {
+        return _homeFor(profile.role);
+      }
+
+      // Region/community administration is for regional and app admins.
+      // The RLS policies refuse the writes anyway; this keeps anyone else out
+      // of a page whose every button would only ever error.
+      if (location.startsWith(Routes.communityManage) &&
+          !profile.role.canManageRegions) {
         return _homeFor(profile.role);
       }
 
@@ -300,6 +336,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: Routes.dashboardYouth,
         builder: (context, state) =>
             YouthEngagementDetailPage(profileId: state.pathParameters['id']!),
+      ),
+      // Declared ahead of the shell so it wins over the `/discipleship`
+      // sub-shell it shares a prefix with.
+      GoRoute(
+        path: Routes.myYouthDetail,
+        builder: (context, state) =>
+            YouthSummaryPage(profileId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: Routes.messageThread,
@@ -396,6 +439,10 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: Routes.relationships,
                 builder: (context, state) =>
                     const RelationshipListPage(),
+              ),
+              GoRoute(
+                path: Routes.myYouth,
+                builder: (context, state) => const FamilySummaryPage(),
               ),
               GoRoute(
                 path: '/discipleship/milestones',

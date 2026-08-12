@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/providers/supabase_providers.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_widgets.dart';
+import '../../journal/presentation/journal_list_page.dart' show VisibilityBadge;
 import '../application/relationship_providers.dart';
 import '../domain/relationship.dart';
 import '../domain/relationship_interaction.dart';
@@ -25,44 +27,53 @@ class RelationshipDetailPage extends ConsumerWidget {
         ?.where((r) => r.id == relationshipId)
         .firstOrNull;
 
+    // A parent or youth pastor reaches this page through what the youth chose
+    // to share. They read it; the youth alone edits, deletes and logs to it.
+    final isMine = relationship?.isOwnedBy(ref.watch(currentUserIdProvider))
+        // Until the row arrives there is nothing to act on either way.
+        ?? false;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(relationship?.name ?? 'Relationship'),
         actions: [
-          if (relationship != null)
+          if (isMine) ...[
             IconButton(
               tooltip: 'Edit',
               icon: const Icon(Icons.edit_outlined),
               onPressed: () =>
                   context.push(Routes.relationshipEditFor(relationshipId)),
             ),
-          if (relationship != null)
             IconButton(
               tooltip: 'Delete',
               icon: const Icon(Icons.delete_outline),
               onPressed: () => _delete(context, ref),
             ),
+          ],
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () =>
-            context.push(Routes.interactionNewFor(relationshipId)),
-        icon: const Icon(Icons.add),
-        label: const Text('Log interaction'),
-      ),
+      floatingActionButton: isMine
+          ? FloatingActionButton.extended(
+              onPressed: () =>
+                  context.push(Routes.interactionNewFor(relationshipId)),
+              icon: const Icon(Icons.add),
+              label: const Text('Log interaction'),
+            )
+          : null,
       body: RefreshIndicator(
         onRefresh: () => ref
             .read(relationshipInteractionsProvider(relationshipId).notifier)
             .refresh(),
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(
+          padding: EdgeInsets.fromLTRB(
             AppTheme.space4,
             AppTheme.space4,
             AppTheme.space4,
-            96,
+            isMine ? 96 : AppTheme.space4, // clears the FAB
           ),
           children: [
-            if (relationship != null) _InfoSection(relationship: relationship),
+            if (relationship != null)
+              _InfoSection(relationship: relationship, isMine: isMine),
             const SizedBox(height: AppTheme.space5),
             Text(
               'Interactions',
@@ -83,8 +94,10 @@ class RelationshipDetailPage extends ConsumerWidget {
                     child: EmptyState(
                       icon: Icons.history_outlined,
                       title: 'No interactions yet',
-                      message:
-                          'Tap "Log interaction" to record time spent together.',
+                      message: isMine
+                          ? 'Tap "Log interaction" to record time spent '
+                              'together.'
+                          : 'Nothing has been logged for this person yet.',
                     ),
                   );
                 }
@@ -95,6 +108,7 @@ class RelationshipDetailPage extends ConsumerWidget {
                       _InteractionTile(
                         interaction: interaction,
                         relationshipId: relationshipId,
+                        isMine: isMine,
                       ),
                   ],
                 );
@@ -128,9 +142,10 @@ class RelationshipDetailPage extends ConsumerWidget {
 }
 
 class _InfoSection extends StatelessWidget {
-  const _InfoSection({required this.relationship});
+  const _InfoSection({required this.relationship, required this.isMine});
 
   final Relationship relationship;
+  final bool isMine;
 
   @override
   Widget build(BuildContext context) {
@@ -198,6 +213,24 @@ class _InfoSection extends StatelessWidget {
                 ],
               ),
             ],
+            // Whose this is, and how far they chose to share it. On your own
+            // entry both facts are already obvious — the editor says them.
+            if (!isMine) ...[
+              const SizedBox(height: AppTheme.space3),
+              Wrap(
+                spacing: AppTheme.space2,
+                runSpacing: AppTheme.space1,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  AppChip(
+                    label: relationship.ownerName ?? 'A youth in your church',
+                    icon: Icons.person_outline,
+                    muted: true,
+                  ),
+                  VisibilityBadge(visibility: relationship.visibility),
+                ],
+              ),
+            ],
           ],
         ),
       ),
@@ -209,10 +242,12 @@ class _InteractionTile extends ConsumerWidget {
   const _InteractionTile({
     required this.interaction,
     required this.relationshipId,
+    required this.isMine,
   });
 
   final RelationshipInteraction interaction;
   final String relationshipId;
+  final bool isMine;
 
   Future<void> _delete(BuildContext context, WidgetRef ref) async {
     final confirmed = await confirmDestructive(
@@ -282,12 +317,13 @@ class _InteractionTile extends ConsumerWidget {
                 ],
               ),
             ),
-            IconButton(
-              tooltip: 'Delete',
-              icon: const Icon(Icons.delete_outline, size: 18),
-              onPressed: () => _delete(context, ref),
-              visualDensity: VisualDensity.compact,
-            ),
+            if (isMine)
+              IconButton(
+                tooltip: 'Delete',
+                icon: const Icon(Icons.delete_outline, size: 18),
+                onPressed: () => _delete(context, ref),
+                visualDensity: VisualDensity.compact,
+              ),
           ],
         ),
       ),

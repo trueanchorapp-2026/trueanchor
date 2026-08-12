@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/domain/entry_visibility.dart';
 import '../../../core/providers/supabase_providers.dart';
 import '../domain/relationship.dart';
 import '../domain/relationship_interaction.dart';
@@ -26,11 +27,13 @@ class RelationshipList extends AsyncNotifier<List<Relationship>> {
 
   Future<void> add({
     required String name,
+    required EntryVisibility visibility,
     String? context,
     String? nextStep,
   }) async {
     final created = await ref.read(relationshipRepositoryProvider).create(
           name: name,
+          visibility: visibility,
           context: context,
           nextStep: nextStep,
         );
@@ -41,12 +44,14 @@ class RelationshipList extends AsyncNotifier<List<Relationship>> {
   Future<void> edit({
     required String id,
     required String name,
+    required EntryVisibility visibility,
     String? context,
     String? nextStep,
   }) async {
     final saved = await ref.read(relationshipRepositoryProvider).update(
           id: id,
           name: name,
+          visibility: visibility,
           context: context,
           nextStep: nextStep,
         );

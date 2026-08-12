@@ -24,14 +24,18 @@ class CommunityShell extends ConsumerWidget {
   final String location;
   final Widget child;
 
+  /// Manage leads for the roles that have it. The chip row scrolls
+  /// horizontally with no affordance saying so, so a fifth chip is effectively
+  /// invisible on a phone — and Manage is the whole reason a regional admin
+  /// opens this tab.
   static List<_SubTab> _tabsFor(UserRole? role) {
     return [
+      if (role != null && role.canManageRegions)
+        const _SubTab(route: '/community/manage', label: 'Manage'),
       const _SubTab(route: '/community/news', label: 'News'),
       const _SubTab(route: '/community/discussions', label: 'Discussions'),
       const _SubTab(route: '/community/events', label: 'Events'),
       const _SubTab(route: '/community/resources', label: 'Resources'),
-      if (role != null && role.canManageRegions)
-        const _SubTab(route: '/community/manage', label: 'Manage'),
     ];
   }
 

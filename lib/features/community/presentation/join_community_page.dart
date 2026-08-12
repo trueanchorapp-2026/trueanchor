@@ -153,6 +153,10 @@ class _CommunityPicker extends ConsumerWidget {
                       ? Text(community.locationDisplay)
                       : null,
                   trailing: FilledButton.tonal(
+                    // Sized to its label — see [AppTheme.inlineButtonStyle].
+                    // The app-wide minimum width is infinite, which a
+                    // ListTile's trailing slot resolves to the whole tile.
+                    style: AppTheme.inlineButtonStyle,
                     onPressed: joining ? null : () => onJoin(community),
                     child: joining
                         ? const SizedBox(

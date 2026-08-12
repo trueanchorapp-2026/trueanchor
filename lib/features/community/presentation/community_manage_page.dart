@@ -48,6 +48,35 @@ class _ManageContent extends ConsumerStatefulWidget {
 class _ManageContentState extends ConsumerState<_ManageContent> {
   String? _expandedRegionId;
 
+  /// "Add community" lives inside an expanded region, so a collapsed list hides
+  /// the only way to create one. Open the first region on arrival.
+  @override
+  void initState() {
+    super.initState();
+    _expandedRegionId = _defaultExpanded();
+  }
+
+  /// The list arrives through a rebuild, not a remount, so [initState] alone
+  /// leaves the very first region a user creates collapsed. A deliberate
+  /// collapse is left alone — only an empty list filling up, or the expanded
+  /// region being deleted, reopens one.
+  @override
+  void didUpdateWidget(_ManageContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final expanded = _expandedRegionId;
+    final grewFromEmpty =
+        expanded == null && oldWidget.regions.isEmpty && widget.regions.isNotEmpty;
+    final expandedIsGone = expanded != null &&
+        !widget.regions.any((region) => region.id == expanded);
+
+    if (grewFromEmpty || expandedIsGone) {
+      _expandedRegionId = _defaultExpanded();
+    }
+  }
+
+  String? _defaultExpanded() =>
+      widget.regions.isEmpty ? null : widget.regions.first.id;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -62,7 +91,9 @@ class _ManageContentState extends ConsumerState<_ManageContent> {
                   style: theme.textTheme.headlineSmall),
             ),
             FilledButton.tonalIcon(
-              onPressed: () => _showCreateRegionDialog(context),
+              // In a Row — see [AppTheme.inlineButtonStyle].
+              style: AppTheme.inlineButtonStyle,
+              onPressed: _showCreateRegionDialog,
               icon: const Icon(Icons.add),
               label: const Text('Region'),
             ),
@@ -91,7 +122,9 @@ class _ManageContentState extends ConsumerState<_ManageContent> {
     );
   }
 
-  Future<void> _showCreateRegionDialog(BuildContext context) async {
+  /// Takes no [BuildContext]: it uses the State's own, so the `mounted` checks
+  /// after the await guard the very context they are used with.
+  Future<void> _showCreateRegionDialog() async {
     final controller = TextEditingController();
     final name = await showDialog<String>(
       context: context,

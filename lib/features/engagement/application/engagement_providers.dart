@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/supabase_providers.dart';
 import '../../profile/application/profile_providers.dart';
 import '../domain/engagement_repository.dart';
+import '../domain/weekly_summary.dart';
 import '../domain/youth_engagement.dart';
 import '../infrastructure/supabase_engagement_repository.dart';
 
@@ -44,6 +45,20 @@ final engagementOverviewProvider =
 final needsAttentionProvider = Provider<List<YouthEngagement>>((ref) {
   final roster = ref.watch(engagementOverviewProvider).value ?? const [];
   return roster.where((youth) => youth.needsAttention).toList();
+});
+
+/// One profile's seven-day counts.
+///
+/// Keyed by profile id and fetched directly, unlike [youthEngagementProvider]:
+/// a parent has no roster to read from, and a pastor deep-linking straight to
+/// a youth may not have loaded theirs yet.
+final weeklySummaryProvider =
+    FutureProvider.family<WeeklySummary, String>((ref, profileId) {
+  // Dropped on sign-out, so one household's numbers never survive into the
+  // next session.
+  ref.watch(currentUserIdProvider);
+
+  return ref.watch(engagementRepositoryProvider).fetchWeeklySummary(profileId);
 });
 
 /// One youth's row, for the drill-down page. Reads from the roster already in

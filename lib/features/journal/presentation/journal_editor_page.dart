@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -266,7 +266,7 @@ class _JournalEditorPageState extends ConsumerState<JournalEditorPage> {
                 ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: AppTheme.space2),
-          _SharingCheckbox(
+          SharingCheckbox(
             enabled: !_saving,
             value: sharing.withFamily,
             title: EntrySharing.familyLabelFor(role),
@@ -276,7 +276,7 @@ class _JournalEditorPageState extends ConsumerState<JournalEditorPage> {
               role,
             ),
           ),
-          _SharingCheckbox(
+          SharingCheckbox(
             enabled: !_saving,
             value: sharing.withPastor,
             title: EntrySharing.pastorLabelFor(role),
@@ -337,39 +337,3 @@ class _JournalEditorPageState extends ConsumerState<JournalEditorPage> {
   }
 }
 
-/// One sharing tick, with the explanation of who it reaches sitting under it
-/// rather than behind a tooltip — this is the one control in the app where
-/// guessing wrong exposes something the author meant to keep close.
-class _SharingCheckbox extends StatelessWidget {
-  const _SharingCheckbox({
-    required this.enabled,
-    required this.value,
-    required this.title,
-    required this.subtitle,
-    required this.onChanged,
-  });
-
-  final bool enabled;
-  final bool value;
-  final String title;
-  final String subtitle;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return CheckboxListTile(
-      value: value,
-      onChanged: enabled ? (checked) => onChanged(checked ?? false) : null,
-      contentPadding: EdgeInsets.zero,
-      controlAffinity: ListTileControlAffinity.leading,
-      title: Text(title),
-      subtitle: Text(
-        subtitle,
-        style: theme.textTheme.bodySmall
-            ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-      ),
-    );
-  }
-}
