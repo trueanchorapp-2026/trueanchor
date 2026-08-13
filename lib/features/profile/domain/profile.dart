@@ -5,7 +5,7 @@ import 'user_role.dart';
 class Profile {
   const Profile({
     required this.id,
-    required this.churchId,
+    this.churchId,
     required this.role,
     required this.firstName,
     required this.lastName,
@@ -19,11 +19,13 @@ class Profile {
     this.gender,
     this.baptized = false,
     this.baptizedOn,
+    this.city,
+    this.state,
   });
 
   factory Profile.fromJson(Map<String, dynamic> json) => Profile(
         id: json['id'] as String,
-        churchId: json['church_id'] as String,
+        churchId: json['church_id'] as String?,
         familyId: json['family_id'] as String?,
         role: UserRole.fromWire(json['role'] as String),
         familyRole: FamilyRole.tryFromWire(json['family_role']),
@@ -37,10 +39,12 @@ class Profile {
         gender: json['gender'] as String?,
         baptized: json['baptized'] as bool? ?? false,
         baptizedOn: _parseDate(json['baptized_on']),
+        city: json['city'] as String?,
+        state: json['state'] as String?,
       );
 
   final String id;
-  final String churchId;
+  final String? churchId;
   final String? familyId;
   final UserRole role;
 
@@ -57,6 +61,8 @@ class Profile {
   final String? gender;
   final bool baptized;
   final DateTime? baptizedOn;
+  final String? city;
+  final String? state;
 
   String get fullName => [firstName, lastName]
       .where((part) => part.trim().isNotEmpty)
@@ -99,6 +105,11 @@ class Profile {
   /// family roles existed.
   String get householdLabel => familyRole?.label ?? role.label;
 
+  String get locationDisplay =>
+      [city, state]
+          .where((p) => p != null && p.trim().isNotEmpty)
+          .join(', ');
+
   /// Only the fields a user is allowed to edit about themselves. Role,
   /// church_id and family_id are omitted deliberately — the database reverts
   /// them anyway (see `private.guard_profile_columns`), so sending them would
@@ -112,6 +123,8 @@ class Profile {
         'gender': gender,
         'baptized': baptized,
         'baptized_on': _formatDate(baptizedOn),
+        'city': city,
+        'state': state,
       };
 
   Profile copyWith({
@@ -127,6 +140,8 @@ class Profile {
     bool clearBirthDate = false,
     bool clearBaptizedOn = false,
     bool clearGrade = false,
+    String? city,
+    String? state,
   }) =>
       Profile(
         id: id,
@@ -144,6 +159,8 @@ class Profile {
         gender: gender ?? this.gender,
         baptized: baptized ?? this.baptized,
         baptizedOn: clearBaptizedOn ? null : (baptizedOn ?? this.baptizedOn),
+        city: city ?? this.city,
+        state: state ?? this.state,
       );
 }
 

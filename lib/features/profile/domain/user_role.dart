@@ -4,6 +4,7 @@
 /// written to and read from the database.
 enum UserRole {
   appAdmin('app_admin', 'App Admin'),
+  regionalAdmin('regional_admin', 'Regional Admin'),
   churchAdmin('church_admin', 'Church Admin'),
   youthPastor('youth_pastor', 'Youth Pastor'),
   parent('parent', 'Parent'),
@@ -66,4 +67,30 @@ enum UserRole {
   /// pastoral care.
   bool get canViewEngagementDashboard =>
       this == UserRole.youthPastor || this == UserRole.appAdmin;
+
+  /// Who may log a relationship. Mirrors `relationships_insert_own` — outward
+  /// growth is the youth's own work, so only they author it.
+  bool get canTrackRelationships => this == UserRole.youth;
+
+  /// Who may open Love in Action at all. Mirrors the three select policies on
+  /// `relationships`: the owning youth, a parent in their household, and their
+  /// youth pastor. What each of those last two actually sees is decided
+  /// per-entry by the author — see `EntryVisibility` in core/domain.
+  bool get canViewRelationships =>
+      canTrackRelationships ||
+      this == UserRole.parent ||
+      this == UserRole.youthPastor;
+
+  /// Who sees the weekly summary of the youth in their own household. A
+  /// pastor's equivalent is [canViewEngagementDashboard], which is
+  /// church-wide; this one is family-scoped, matching the parent branch inside
+  /// `youth_weekly_summary()`.
+  bool get canViewYouthSummary => this == UserRole.parent;
+
+  bool get canCreateGroupChat => this == UserRole.youthPastor;
+
+  bool get isRegionalAdmin => this == UserRole.regionalAdmin;
+
+  bool get canManageRegions =>
+      this == UserRole.regionalAdmin || this == UserRole.appAdmin;
 }

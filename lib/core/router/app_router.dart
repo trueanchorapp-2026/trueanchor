@@ -7,21 +7,43 @@ import '../../features/auth/presentation/sign_in_page.dart';
 import '../../features/auth/presentation/sign_up_page.dart';
 import '../../features/auth/presentation/splash_page.dart';
 import '../../features/church/presentation/church_page.dart';
+import '../../features/community/presentation/community_discussion_detail_page.dart';
+import '../../features/community/presentation/community_discussion_editor_page.dart';
+import '../../features/community/presentation/community_discussions_page.dart';
+import '../../features/community/presentation/community_event_editor_page.dart';
+import '../../features/community/presentation/community_events_page.dart';
+import '../../features/community/presentation/community_manage_page.dart';
+import '../../features/community/presentation/community_news_editor_page.dart';
+import '../../features/community/presentation/community_news_page.dart';
+import '../../features/community/presentation/community_resources_page.dart';
+import '../../features/community/presentation/community_shell.dart';
+import '../../features/devotionals/presentation/devotional_history_page.dart';
 import '../../features/devotionals/presentation/today_page.dart';
 import '../../features/engagement/presentation/engagement_dashboard_page.dart';
+import '../../features/engagement/presentation/family_summary_page.dart';
 import '../../features/engagement/presentation/youth_engagement_detail_page.dart';
+import '../../features/engagement/presentation/youth_summary_page.dart';
 import '../../features/events/domain/event.dart';
 import '../../features/events/presentation/event_editor_page.dart';
 import '../../features/events/presentation/event_list_page.dart';
 import '../../features/family/presentation/family_page.dart';
 import '../../features/family/presentation/family_setup_page.dart';
+import '../../features/home/presentation/discipleship_shell.dart';
+import '../../features/home/presentation/home_page.dart';
 import '../../features/home/presentation/home_shell.dart';
+import '../../features/journal/domain/journal_entry.dart';
 import '../../features/journal/presentation/journal_editor_page.dart';
 import '../../features/journal/presentation/journal_list_page.dart';
+import '../../features/group_chat/presentation/group_chat_page.dart';
+import '../../features/group_chat/presentation/group_manage_page.dart';
 import '../../features/messaging/presentation/thread_list_page.dart';
 import '../../features/messaging/presentation/thread_page.dart';
 import '../../features/milestones/presentation/milestone_editor_page.dart';
 import '../../features/milestones/presentation/milestone_list_page.dart';
+import '../../features/relationships/presentation/interaction_editor_page.dart';
+import '../../features/relationships/presentation/relationship_detail_page.dart';
+import '../../features/relationships/presentation/relationship_editor_page.dart';
+import '../../features/relationships/presentation/relationship_list_page.dart';
 import '../../features/profile/application/profile_providers.dart';
 import '../../features/profile/domain/user_role.dart';
 import '../../features/profile/presentation/edit_profile_page.dart';
@@ -34,25 +56,76 @@ abstract final class Routes {
   static const signUp = '/sign-up';
   static const completeSignup = '/complete-signup';
   static const familySetup = '/family-setup';
-  static const today = '/today';
-  static const journal = '/journal';
+
+  // Main tabs
+  static const home = '/home';
+  static const discipleship = '/discipleship';
+  static const community = '/community';
+  static const profile = '/profile';
+
+  // Discipleship sub-tabs
+  static const today = '/discipleship/today';
+  static const devotionalHistory = '/discipleship/history';
+  static const messages = '/discipleship/messages';
+  static const milestones = '/discipleship/milestones';
+  static const events = '/discipleship/events';
+
+  // Discipleship sub-tabs (cont.)
+  static const relationships = '/discipleship/relationships';
+  static const discipleshipJournal = '/discipleship/journal';
+  static const myYouth = '/discipleship/my-youth';
+
+  /// The drill-down under [myYouth]. Registered outside the shell — it has its
+  /// own app bar and back arrow, so the sub-tab chips would be misleading. The
+  /// shared prefix is deliberate: one `startsWith` guards both.
+  static const myYouthDetail = '/discipleship/my-youth/:id';
+
+  // Community sub-tabs
+  static const communityNews = '/community/news';
+  static const communityDiscussions = '/community/discussions';
+  static const communityEvents = '/community/events';
+  static const communityResources = '/community/resources';
+  static const communityManage = '/community/manage';
+
+  // Community drill-down routes
+  static const communityNewsNew = '/community-news/new';
+  static const communityNewsEdit = '/community-news/:id/edit';
+  static const communityDiscussionNew = '/community-discussion/new';
+  static const communityDiscussionDetail = '/community-discussion/:id';
+  static const communityEventNew = '/community-event/new';
+
+  // Drill-down routes
   static const journalNew = '/journal/new';
   static const journalEdit = '/journal/:id/edit';
   static const editMember = '/family/member/:id/edit';
-  static const events = '/events';
   static const eventEditor = '/events/editor';
-  static const messages = '/messages';
   static const messageThread = '/messages/thread/:id';
-  static const milestones = '/milestones';
   static const milestoneNew = '/milestones/new';
-  static const family = '/family';
-  static const church = '/church';
+  static const relationshipNew = '/relationships/new';
+  static const relationshipDetail = '/relationships/:id';
+  static const relationshipEdit = '/relationships/:id/edit';
+  static const interactionNew = '/relationships/:id/interaction/new';
+  static const groupChat = '/messages/group/:id';
+  static const groupManage = '/messages/group/:id/manage';
   static const dashboard = '/dashboard';
   static const dashboardYouth = '/dashboard/youth/:id';
-  static const profile = '/profile';
   static const editProfile = '/profile/edit';
+  static const family = '/family';
+  static const church = '/church';
+
+  // Legacy — kept for staff navigation.
+  static const journal = '/journal';
 
   static String journalEditFor(String entryId) => '/journal/$entryId/edit';
+
+  static String journalNewFor({String? devotionalId, String? type}) {
+    final params = <String, String>{};
+    if (devotionalId != null) params['devotionalId'] = devotionalId;
+    if (type != null) params['type'] = type;
+    if (params.isEmpty) return journalNew;
+    final query = params.entries.map((e) => '${e.key}=${e.value}').join('&');
+    return '$journalNew?$query';
+  }
 
   static String messageThreadFor(String threadId) =>
       '/messages/thread/$threadId';
@@ -60,12 +133,31 @@ abstract final class Routes {
   static String dashboardYouthFor(String profileId) =>
       '/dashboard/youth/$profileId';
 
+  static String myYouthDetailFor(String profileId) =>
+      '/discipleship/my-youth/$profileId';
+
   static String editMemberFor(String memberId) =>
       '/family/member/$memberId/edit';
+
+  static String relationshipDetailFor(String id) => '/relationships/$id';
+
+  static String relationshipEditFor(String id) => '/relationships/$id/edit';
+
+  static String interactionNewFor(String relationshipId) =>
+      '/relationships/$relationshipId/interaction/new';
+
+  static String groupChatFor(String groupId) => '/messages/group/$groupId';
+
+  static String groupManageFor(String groupId) =>
+      '/messages/group/$groupId/manage';
+
+  static String communityNewsEditFor(String newsId) =>
+      '/community-news/$newsId/edit';
+
+  static String communityDiscussionDetailFor(String discussionId) =>
+      '/community-discussion/$discussionId';
 }
 
-/// Bridges Riverpod to go_router: any change to the current profile (which
-/// itself watches the auth session) re-runs the redirect ladder.
 class _RouterRefresh extends ChangeNotifier {
   _RouterRefresh(this._ref) {
     _ref.listen(currentProfileProvider, (_, _) => notifyListeners());
@@ -90,12 +182,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       final onAuthPage =
           location == Routes.signIn || location == Routes.signUp;
 
-      // Still restoring the session / loading the profile row.
       if (profileState.isLoading) {
         return location == Routes.splash ? null : Routes.splash;
       }
 
-      // A failed profile load must not trap the user on a blank splash.
       if (profileState.hasError) {
         return onAuthPage ? null : Routes.signIn;
       }
@@ -103,9 +193,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       final profile = profileState.value;
 
       if (profile == null) {
-        // A session with no profile is the OAuth path: the user authenticated
-        // through Google but has not claimed a church code yet. Send them to
-        // finish signup rather than back to the sign-in screen.
         final signedIn = ref.read(currentUserIdProvider) != null;
         if (signedIn) {
           return location == Routes.completeSignup
@@ -115,13 +202,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         return onAuthPage ? null : Routes.signIn;
       }
 
-      // Parents and youth belong to a household; everything else in the app
-      // is scoped by it, so setup has to happen before anything else.
       if (profile.role.requiresFamily && !profile.hasFamily) {
         return location == Routes.familySetup ? null : Routes.familySetup;
       }
 
-      // Signed in and set up: bounce away from the entry pages.
       if (onAuthPage ||
           location == Routes.splash ||
           location == Routes.completeSignup ||
@@ -129,25 +213,66 @@ final routerProvider = Provider<GoRouter>((ref) {
         return _homeFor(profile.role);
       }
 
-      // The church view would be empty for a household member anyway — RLS
-      // returns them nothing — so don't leave them staring at it.
+      // Church view is staff-only.
       if (location == Routes.church && !profile.role.isChurchStaff) {
         return _homeFor(profile.role);
       }
 
-      // youth_engagement_overview() raises NOT_AUTHORIZED for everyone else,
-      // so this guard is what turns a would-be error screen into a redirect.
+      // Engagement dashboard is pastor/admin-only.
       if (location.startsWith(Routes.dashboard) &&
           !profile.role.canViewEngagementDashboard) {
         return _homeFor(profile.role);
       }
 
-      // Messaging is between a household and its youth pastor. A church admin
-      // reaching /messages would see an empty inbox they can never fill —
-      // `open_thread()` raises ROLE_CANNOT_MESSAGE for them.
-      if (location.startsWith(Routes.messages) &&
+      // Messaging guard — covers inbox, thread drill-down, and group chat.
+      if ((location.startsWith(Routes.messages) ||
+              location.startsWith('/messages/thread') ||
+              location.startsWith('/messages/group')) &&
           !profile.role.canUseMessaging) {
         return _homeFor(profile.role);
+      }
+
+      // Love in Action: the youth authors, their household adults and youth
+      // pastor read. Authoring routes stay youth-only — a parent who can see a
+      // shared relationship still cannot add to or edit it.
+      final isRelationshipRoute = location.startsWith(Routes.relationships) ||
+          location.startsWith('/relationships');
+      final isRelationshipWrite = location == Routes.relationshipNew ||
+          location.endsWith('/edit') && location.startsWith('/relationships/') ||
+          location.contains('/interaction/new');
+
+      if (isRelationshipRoute &&
+          (isRelationshipWrite
+              ? !profile.role.canTrackRelationships
+              : !profile.role.canViewRelationships)) {
+        return _homeFor(profile.role);
+      }
+
+      // My Youth is the parent's household view. Mirrors the parent branch in
+      // `youth_weekly_summary()`, which scopes on family_id — a pastor's
+      // church-wide equivalent is the engagement dashboard.
+      if (location.startsWith(Routes.myYouth) &&
+          !profile.role.canViewYouthSummary) {
+        return _homeFor(profile.role);
+      }
+
+      // Community is adults-only.
+      if (location.startsWith(Routes.community) &&
+          profile.role == UserRole.youth) {
+        return _homeFor(profile.role);
+      }
+
+      // Region/community administration is for regional and app admins.
+      // The RLS policies refuse the writes anyway; this keeps anyone else out
+      // of a page whose every button would only ever error.
+      if (location.startsWith(Routes.communityManage) &&
+          !profile.role.canManageRegions) {
+        return _homeFor(profile.role);
+      }
+
+      // Redirect bare /community to the first sub-tab.
+      if (location == Routes.community) {
+        return Routes.communityNews;
       }
 
       return null;
@@ -173,9 +298,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: Routes.familySetup,
         builder: (context, state) => const FamilySetupPage(),
       ),
+      // Drill-down routes (outside the shell).
       GoRoute(
         path: Routes.journalNew,
-        builder: (context, state) => const JournalEditorPage(),
+        builder: (context, state) {
+          final qp = state.uri.queryParameters;
+          return JournalEditorPage(
+            devotionalId: qp['devotionalId'],
+            initialType: EntryType.tryFromWire(qp['type']),
+          );
+        },
       ),
       GoRoute(
         path: Routes.journalEdit,
@@ -184,15 +316,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.editMember,
-        // Editing someone else's profile. The page re-checks that the target
-        // really is in the caller's household, and RLS refuses regardless.
         builder: (context, state) =>
             EditProfilePage(memberId: state.pathParameters['id']),
       ),
       GoRoute(
         path: Routes.eventEditor,
-        // A non-null Event means edit; null means create. Staff-only; the FAB
-        // and edit affordances that reach here are already role-gated.
         builder: (context, state) =>
             EventEditorPage(event: state.extra as Event?),
       ),
@@ -205,59 +333,180 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const EditProfilePage(),
       ),
       GoRoute(
-        // Top-level, like the thread page: a drill-down is a place you go into
-        // and come back from, and it carries its own Message action.
         path: Routes.dashboardYouth,
         builder: (context, state) =>
             YouthEngagementDetailPage(profileId: state.pathParameters['id']!),
       ),
+      // Declared ahead of the shell so it wins over the `/discipleship`
+      // sub-shell it shares a prefix with.
       GoRoute(
-        // Outside the ShellRoute on purpose: a thread is a place you are in,
-        // and it also keeps `/messages/thread/...` from lighting up the
-        // Messages tab through HomeShell's startsWith match.
+        path: Routes.myYouthDetail,
+        builder: (context, state) =>
+            YouthSummaryPage(profileId: state.pathParameters['id']!),
+      ),
+      GoRoute(
         path: Routes.messageThread,
         builder: (context, state) =>
             ThreadPage(threadId: state.pathParameters['id']!),
       ),
+      GoRoute(
+        path: Routes.groupChat,
+        builder: (context, state) =>
+            GroupChatPage(groupId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: Routes.groupManage,
+        builder: (context, state) =>
+            GroupManagePage(groupId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: Routes.relationshipNew,
+        builder: (context, state) => const RelationshipEditorPage(),
+      ),
+      GoRoute(
+        path: Routes.relationshipEdit,
+        builder: (context, state) => RelationshipEditorPage(
+            relationshipId: state.pathParameters['id']),
+      ),
+      GoRoute(
+        path: Routes.relationshipDetail,
+        builder: (context, state) => RelationshipDetailPage(
+            relationshipId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: Routes.interactionNew,
+        builder: (context, state) => InteractionEditorPage(
+            relationshipId: state.pathParameters['id']!),
+      ),
+      // Community drill-down routes (outside the shell).
+      GoRoute(
+        path: Routes.communityNewsNew,
+        builder: (context, state) => const CommunityNewsEditorPage(),
+      ),
+      GoRoute(
+        path: Routes.communityNewsEdit,
+        builder: (context, state) =>
+            CommunityNewsEditorPage(newsId: state.pathParameters['id']),
+      ),
+      GoRoute(
+        path: Routes.communityDiscussionNew,
+        builder: (context, state) =>
+            const CommunityDiscussionEditorPage(),
+      ),
+      GoRoute(
+        path: Routes.communityDiscussionDetail,
+        builder: (context, state) => CommunityDiscussionDetailPage(
+            discussionId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: Routes.communityEventNew,
+        builder: (context, state) => const CommunityEventEditorPage(),
+      ),
+      // Main shell with 4 tabs.
       ShellRoute(
         builder: (context, state, child) =>
             HomeShell(location: state.matchedLocation, child: child),
         routes: [
           GoRoute(
-            path: Routes.today,
-            builder: (context, state) => const TodayPage(),
+            path: Routes.home,
+            builder: (context, state) => const HomePage(),
+          ),
+          // Discipleship sub-shell with filter chips.
+          ShellRoute(
+            builder: (context, state, child) => DiscipleshipShell(
+              location: state.matchedLocation,
+              child: child,
+            ),
+            routes: [
+              GoRoute(
+                path: Routes.today,
+                builder: (context, state) => const TodayPage(),
+              ),
+              GoRoute(
+                path: Routes.devotionalHistory,
+                builder: (context, state) =>
+                    const DevotionalHistoryPage(),
+              ),
+              GoRoute(
+                path: Routes.discipleshipJournal,
+                builder: (context, state) => const JournalListPage(),
+              ),
+              GoRoute(
+                path: '/discipleship/messages',
+                builder: (context, state) => const ThreadListPage(),
+              ),
+              GoRoute(
+                path: Routes.relationships,
+                builder: (context, state) =>
+                    const RelationshipListPage(),
+              ),
+              GoRoute(
+                path: Routes.myYouth,
+                builder: (context, state) => const FamilySummaryPage(),
+              ),
+              GoRoute(
+                path: '/discipleship/milestones',
+                builder: (context, state) => const MilestoneListPage(),
+              ),
+              GoRoute(
+                path: '/discipleship/events',
+                builder: (context, state) => const EventListPage(),
+              ),
+            ],
+          ),
+          // Community sub-shell with filter chips.
+          ShellRoute(
+            builder: (context, state, child) => CommunityShell(
+              location: state.matchedLocation,
+              child: child,
+            ),
+            routes: [
+              GoRoute(
+                path: Routes.communityNews,
+                builder: (context, state) => const CommunityNewsPage(),
+              ),
+              GoRoute(
+                path: Routes.communityDiscussions,
+                builder: (context, state) =>
+                    const CommunityDiscussionsPage(),
+              ),
+              GoRoute(
+                path: Routes.communityEvents,
+                builder: (context, state) =>
+                    const CommunityEventsPage(),
+              ),
+              GoRoute(
+                path: Routes.communityResources,
+                builder: (context, state) =>
+                    const CommunityResourcesPage(),
+              ),
+              GoRoute(
+                path: Routes.communityManage,
+                builder: (context, state) =>
+                    const CommunityManagePage(),
+              ),
+            ],
           ),
           GoRoute(
-            path: Routes.journal,
-            builder: (context, state) => const JournalListPage(),
+            path: Routes.profile,
+            builder: (context, state) => const ProfilePage(),
           ),
-          GoRoute(
-            path: Routes.events,
-            builder: (context, state) => const EventListPage(),
-          ),
+          // Staff routes kept at root level inside the shell.
           GoRoute(
             path: Routes.dashboard,
             builder: (context, state) => const EngagementDashboardPage(),
-          ),
-          GoRoute(
-            path: Routes.messages,
-            builder: (context, state) => const ThreadListPage(),
-          ),
-          GoRoute(
-            path: Routes.milestones,
-            builder: (context, state) => const MilestoneListPage(),
-          ),
-          GoRoute(
-            path: Routes.family,
-            builder: (context, state) => const FamilyPage(),
           ),
           GoRoute(
             path: Routes.church,
             builder: (context, state) => const ChurchPage(),
           ),
           GoRoute(
-            path: Routes.profile,
-            builder: (context, state) => const ProfilePage(),
+            path: Routes.family,
+            builder: (context, state) => const FamilyPage(),
+          ),
+          GoRoute(
+            path: Routes.journal,
+            builder: (context, state) => const JournalListPage(),
           ),
         ],
       ),
@@ -265,11 +514,9 @@ final routerProvider = Provider<GoRouter>((ref) {
   );
 });
 
-/// Members land on the daily devotional — the habit the app exists to build.
-/// A youth pastor lands on the youth who need them, not on the directory.
-/// Everyone else on the church staff lands on the directory.
 String _homeFor(UserRole role) => switch (role) {
       _ when role.canViewEngagementDashboard => Routes.dashboard,
       _ when role.isChurchStaff => Routes.church,
+      _ when role.isRegionalAdmin => Routes.communityManage,
       _ => Routes.today,
     };

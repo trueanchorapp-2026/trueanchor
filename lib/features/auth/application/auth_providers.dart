@@ -65,6 +65,19 @@ class AuthController extends AsyncNotifier<void> {
         ),
       );
 
+  Future<bool> claimRegionalInvite({
+    required String firstName,
+    required String lastName,
+    required String code,
+  }) =>
+      _run(
+        () => _repo.claimRegionalInvite(
+          firstName: firstName,
+          lastName: lastName,
+          code: code,
+        ),
+      );
+
   Future<bool> signOut() => _run(() => _repo.signOut());
 
   /// Returns whether the action succeeded, so callers can decide about

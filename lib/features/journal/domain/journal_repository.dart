@@ -15,6 +15,7 @@ abstract interface class JournalRepository {
     required String body,
     required EntryType entryType,
     required EntryVisibility visibility,
+    String? devotionalId,
   });
 
   /// Rewrites an entry the caller authored. Visibility is editable here on

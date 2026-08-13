@@ -39,6 +39,7 @@ class SupabaseJournalRepository implements JournalRepository {
     required String body,
     required EntryType entryType,
     required EntryVisibility visibility,
+    String? devotionalId,
   }) async {
     try {
       final row = await _client
@@ -50,6 +51,7 @@ class SupabaseJournalRepository implements JournalRepository {
               body: body,
               entryType: entryType,
               visibility: visibility,
+              devotionalId: devotionalId,
             ),
           )
           .select()

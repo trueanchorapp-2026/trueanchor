@@ -86,7 +86,7 @@ class _InviteCodeFieldState extends ConsumerState<InviteCodeField> {
           textCapitalization: TextCapitalization.characters,
           inputFormatters: [UpperCaseFormatter()],
           decoration: InputDecoration(
-            labelText: 'Church code',
+            labelText: 'Invite code',
             prefixIcon: const Icon(Icons.vpn_key_outlined),
             suffixIcon: previewState.isLoading
                 ? const Padding(
@@ -103,7 +103,7 @@ class _InviteCodeFieldState extends ConsumerState<InviteCodeField> {
           ),
           validator: (value) {
             if ((value?.trim().isEmpty ?? true)) {
-              return 'Enter the code your church gave you.';
+              return 'Enter your invite code.';
             }
             if (preview == null) {
               return 'That code is not valid. Check it with your church.';
@@ -129,6 +129,7 @@ class InviteConfirmation extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isRegional = preview.churchId == null;
     return Container(
       padding: const EdgeInsets.all(AppTheme.space3),
       decoration: BoxDecoration(
@@ -137,25 +138,38 @@ class InviteConfirmation extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.church_outlined,
-              size: 20, color: theme.colorScheme.onPrimaryContainer),
+          Icon(
+            isRegional
+                ? Icons.admin_panel_settings_outlined
+                : Icons.church_outlined,
+            size: 20,
+            color: theme.colorScheme.onPrimaryContainer,
+          ),
           const SizedBox(width: AppTheme.space2),
           Expanded(
             child: Text.rich(
               TextSpan(
                 style: TextStyle(color: theme.colorScheme.onPrimaryContainer),
-                children: [
-                  const TextSpan(text: 'Joining '),
-                  TextSpan(
-                    text: preview.churchName,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  const TextSpan(text: ' as '),
-                  TextSpan(
-                    text: preview.role.label,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                ],
+                children: isRegional
+                    ? [
+                        const TextSpan(text: 'Joining as '),
+                        TextSpan(
+                          text: preview.role.label,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ]
+                    : [
+                        const TextSpan(text: 'Joining '),
+                        TextSpan(
+                          text: preview.churchName,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        const TextSpan(text: ' as '),
+                        TextSpan(
+                          text: preview.role.label,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ],
               ),
             ),
           ),

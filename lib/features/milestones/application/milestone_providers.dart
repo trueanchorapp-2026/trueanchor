@@ -74,7 +74,9 @@ final milestoneSubjectsProvider = FutureProvider<List<Profile>>((ref) async {
     if (familyId == null) return const [];
     people = await repo.fetchFamilyMembers(familyId);
   } else {
-    people = await repo.fetchChurchMembers(me.churchId);
+    final churchId = me.churchId;
+    if (churchId == null) return const [];
+    people = await repo.fetchChurchMembers(churchId);
   }
   return people.where((p) => p.role == UserRole.youth).toList();
 });

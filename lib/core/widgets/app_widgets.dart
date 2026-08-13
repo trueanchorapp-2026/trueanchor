@@ -132,7 +132,6 @@ class EmptyState extends StatelessWidget {
   }
 }
 
-/// CLAUDE.md: "Confirm destructive actions." Returns true only on confirm.
 /// A small pill label. [muted] picks the low-emphasis surface, for facts that
 /// are merely informational; the default carries emphasis, for facts the user
 /// is meant to notice.
@@ -222,6 +221,78 @@ class NoticeBanner extends StatelessWidget {
   }
 }
 
+/// One sharing tick, with the explanation of who it reaches sitting under it
+/// rather than behind a tooltip — this is the one control in the app where
+/// guessing wrong exposes something the author meant to keep close.
+///
+/// Shared by the journal editor and the Love in Action editor, which ask the
+/// same two questions off the same `EntryVisibility` ladder.
+class SharingCheckbox extends StatelessWidget {
+  const SharingCheckbox({
+    required this.enabled,
+    required this.value,
+    required this.title,
+    required this.subtitle,
+    required this.onChanged,
+    super.key,
+  });
+
+  final bool enabled;
+  final bool value;
+  final String title;
+  final String subtitle;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return CheckboxListTile(
+      value: value,
+      onChanged: enabled ? (checked) => onChanged(checked ?? false) : null,
+      contentPadding: EdgeInsets.zero,
+      controlAffinity: ListTileControlAffinity.leading,
+      title: Text(title),
+      subtitle: Text(
+        subtitle,
+        style: theme.textTheme.bodySmall
+            ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+      ),
+    );
+  }
+}
+
+/// One number and its label, sized to share a [Row] with its peers.
+///
+/// Deliberately [Expanded]: a row of these divides the width evenly, so four
+/// stats line up whatever their digits. Used by the engagement dashboard, the
+/// pastor's drill-down, and the weekly summary card.
+class StatTile extends StatelessWidget {
+  const StatTile({required this.value, required this.label, super.key});
+
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(value, style: theme.textTheme.titleLarge),
+          Text(
+            label,
+            style: theme.textTheme.labelSmall
+                ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// CLAUDE.md: "Confirm destructive actions." Returns true only on confirm.
 Future<bool> confirmDestructive(
   BuildContext context, {
   required String title,

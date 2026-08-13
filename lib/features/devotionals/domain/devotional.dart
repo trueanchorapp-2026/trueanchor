@@ -19,6 +19,7 @@ class Devotional {
     this.copyrightNotice,
     this.discussionQuestions = const [],
     this.activity,
+    this.outwardPrompt,
   });
 
   factory Devotional.fromJson(Map<String, dynamic> json) {
@@ -33,6 +34,7 @@ class Devotional {
       body: json['body'] as String? ?? '',
       discussionQuestions: _stringList(json['discussion_questions']),
       activity: _blankToNull(json['activity'] as String?),
+      outwardPrompt: _blankToNull(json['outward_prompt'] as String?),
     );
   }
 
@@ -56,6 +58,7 @@ class Devotional {
   final String body;
   final List<String> discussionQuestions;
   final String? activity;
+  final String? outwardPrompt;
 
   /// True when this really is the devotional written for [today], false when
   /// it arrived through the fallback (the most recent one published on or
@@ -71,6 +74,12 @@ class Devotional {
   bool get hasActivity => activity != null;
 
   bool get hasQuestions => discussionQuestions.isNotEmpty;
+
+  bool get hasOutwardPrompt => outwardPrompt != null;
+
+  /// The outward section text: prefers the explicit prompt, falls back to the
+  /// legacy activity field for older seed content.
+  String? get outwardText => outwardPrompt ?? activity;
 
   /// The line shown under the scripture block, e.g. "Hebrews 6:19 (WEB)".
   String get attribution => translation.trim().isEmpty

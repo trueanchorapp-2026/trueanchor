@@ -38,6 +38,7 @@ class JournalList extends AsyncNotifier<List<JournalEntry>> {
     required String body,
     required EntryType entryType,
     required EntryVisibility visibility,
+    String? devotionalId,
   }) async {
     final authorId = ref.read(currentUserIdProvider);
     if (authorId == null) {
@@ -50,6 +51,7 @@ class JournalList extends AsyncNotifier<List<JournalEntry>> {
           body: body,
           entryType: entryType,
           visibility: visibility,
+          devotionalId: devotionalId,
         );
 
     state = AsyncData([created, ...state.value ?? const []]);

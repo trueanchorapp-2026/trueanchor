@@ -24,7 +24,7 @@ class SupabaseAuthRepository implements AuthRepository {
 
       final row = rows.first as Map<String, dynamic>;
       return InvitePreview(
-        churchId: row['church_id'] as String,
+        churchId: row['church_id'] as String?,
         churchName: row['church_name'] as String,
         role: UserRole.fromWire(row['role'] as String),
       );
@@ -95,6 +95,26 @@ class SupabaseAuthRepository implements AuthRepository {
     try {
       await _client.rpc<dynamic>(
         'claim_invite',
+        params: {
+          'p_first': firstName.trim(),
+          'p_last': lastName.trim(),
+          'p_code': code.trim().toUpperCase(),
+        },
+      );
+    } catch (error) {
+      throw mapError(error);
+    }
+  }
+
+  @override
+  Future<void> claimRegionalInvite({
+    required String firstName,
+    required String lastName,
+    required String code,
+  }) async {
+    try {
+      await _client.rpc<dynamic>(
+        'claim_regional_invite',
         params: {
           'p_first': firstName.trim(),
           'p_last': lastName.trim(),

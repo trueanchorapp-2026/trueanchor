@@ -15,6 +15,24 @@ abstract final class AppTheme {
 
   static const _seed = Color(0xFF2E5A88);
 
+  /// For a filled button that must size to its label — anything inside a [Row]
+  /// or a [ListTile]'s leading/trailing slot.
+  ///
+  /// The app-wide [FilledButtonThemeData] sets `Size.fromHeight(48)`, and
+  /// `Size.fromHeight` means an *infinite* minimum width. In a Column that
+  /// clamps down to the parent's width and the button simply fills the line,
+  /// which is the convention every form page relies on. A Row lays its
+  /// non-flex children out with `maxWidth: infinity`, so there is nothing to
+  /// clamp against and layout asserts with "BoxConstraints forces an infinite
+  /// width". A ListTile does clamp — to the tile's own width — so the button
+  /// swallows the row and the tile asserts "Trailing widget consumes the
+  /// entire tile width". Override the minimum width in both places rather
+  /// than fighting the parent.
+  static final inlineButtonStyle = FilledButton.styleFrom(
+    minimumSize: const Size(0, 40),
+    textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+  );
+
   static ThemeData light() {
     final scheme = ColorScheme.fromSeed(
       seedColor: _seed,
@@ -31,6 +49,8 @@ abstract final class AppTheme {
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
+          // Full-width by default: `fromHeight` leaves the minimum width
+          // infinite. Buttons placed in a Row must use [inlineButtonStyle].
           minimumSize: const Size.fromHeight(48),
           textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
