@@ -35,7 +35,7 @@ class CommunityShell extends ConsumerWidget {
       const _SubTab(route: '/community/news', label: 'News'),
       const _SubTab(route: '/community/discussions', label: 'Discussions'),
       const _SubTab(route: '/community/events', label: 'Events'),
-      const _SubTab(route: '/community/resources', label: 'Resources'),
+      const _SubTab(route: '/community/resources', label: 'Parent Hub'),
     ];
   }
 

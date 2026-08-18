@@ -132,7 +132,8 @@ class HomeShell extends ConsumerWidget {
       if (target != location) context.go(target);
     }
 
-    final title = destinations[index].label;
+    var title = destinations[index].label;
+    if (location == '/discipleship/today') title = 'Daily Discipleship';
 
     final isWide = MediaQuery.sizeOf(context).width >= 760;
 
