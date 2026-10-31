@@ -89,7 +89,8 @@ class _DevotionalScroll extends ConsumerWidget {
     final today = DateTime.now();
     final isToday = devotional.isForToday(today);
     final profile = ref.watch(currentProfileProvider).value;
-    final isYouth = profile?.role.canTrackRelationships ?? false;
+    final canTrackRelationships =
+        profile?.role.canTrackRelationships ?? false;
 
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -119,7 +120,7 @@ class _DevotionalScroll extends ConsumerWidget {
                 inwardChild: InwardReflectionCard(
                   devotionalId: devotional.id,
                 ),
-                outwardChild: isYouth
+                outwardChild: canTrackRelationships
                     ? FilledButton.tonalIcon(
                         onPressed: () => context.go(Routes.relationships),
                         icon: const Icon(Icons.favorite_outline),

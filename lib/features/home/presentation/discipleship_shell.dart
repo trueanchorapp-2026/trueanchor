@@ -37,6 +37,8 @@ class DiscipleshipShell extends ConsumerWidget {
       if (role != null && role.canViewYouthSummary)
         const _SubTab(route: '/discipleship/my-youth', label: 'My Youth'),
       const _SubTab(route: '/discipleship/milestones', label: 'Milestones'),
+      if (role != null && role.isChurchStaff)
+        const _SubTab(route: '/discipleship/events', label: 'Events'),
     ];
   }
 

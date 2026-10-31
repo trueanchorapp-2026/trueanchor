@@ -9,6 +9,7 @@ class CommunityDiscussion {
     required this.updatedAt,
     this.authorName,
     this.replyCount,
+    this.imageUrl,
   });
 
   factory CommunityDiscussion.fromJson(Map<String, dynamic> json) =>
@@ -20,6 +21,7 @@ class CommunityDiscussion {
         body: json['body'] as String,
         authorName: _authorNameFrom(json['author']),
         replyCount: json['reply_count'] as int?,
+        imageUrl: json['image_url'] as String?,
         createdAt: DateTime.tryParse(json['created_at'] as String? ?? '')
                 ?.toLocal() ??
             DateTime.now(),
@@ -35,6 +37,7 @@ class CommunityDiscussion {
   final String body;
   final String? authorName;
   final int? replyCount;
+  final String? imageUrl;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -54,13 +57,39 @@ class CommunityDiscussion {
     required String authorId,
     required String title,
     required String body,
+    String? imageUrl,
   }) =>
       {
         'community_id': communityId,
         'author_id': authorId,
         'title': title.trim(),
         'body': body.trim(),
+        'image_url': ?imageUrl,
       };
+
+  /// Image types the `discussion-images` bucket accepts (see 0028).
+  static const imageContentTypes = {
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'png': 'image/png',
+    'gif': 'image/gif',
+    'webp': 'image/webp',
+  };
+
+  /// The content type to upload [fileName] as. Unknown extensions fall back
+  /// to JPEG, which is what the picker re-encodes to when it compresses.
+  static String imageContentTypeFor(String fileName) {
+    final dot = fileName.lastIndexOf('.');
+    final extension =
+        dot == -1 ? '' : fileName.substring(dot + 1).toLowerCase();
+    return imageContentTypes[extension] ?? 'image/jpeg';
+  }
+
+  /// [fileName] reduced to characters that are safe in a storage path.
+  static String safeImageFileName(String fileName) {
+    final cleaned = fileName.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+    return cleaned.isEmpty ? 'image' : cleaned;
+  }
 
   static Map<String, dynamic> toUpdateJson({
     required String title,

@@ -3,6 +3,7 @@ import 'community_discussion.dart';
 import 'community_event.dart';
 import 'community_membership.dart';
 import 'community_news.dart';
+import 'parent_resource.dart';
 import 'region.dart';
 
 abstract interface class CommunityRepository {
@@ -53,10 +54,15 @@ abstract interface class CommunityRepository {
 
   // Discussions
   Future<List<CommunityDiscussion>> fetchDiscussions(String communityId);
+  Future<String> uploadDiscussionImage({
+    required String fileName,
+    required List<int> bytes,
+  });
   Future<CommunityDiscussion> createDiscussion({
     required String communityId,
     required String title,
     required String body,
+    String? imageUrl,
   });
   Future<CommunityDiscussion> updateDiscussion({
     required String discussionId,
@@ -92,4 +98,7 @@ abstract interface class CommunityRepository {
     DateTime? endsAt,
   });
   Future<void> deleteEvent(String eventId);
+
+  // Parent Resources
+  Future<List<ParentResource>> fetchParentResources();
 }

@@ -61,13 +61,6 @@ const _church = _Destination(
   icon: Icons.church_outlined,
   selectedIcon: Icons.church,
 );
-const _events = _Destination(
-  route: '/discipleship/events',
-  label: 'Events',
-  icon: Icons.event_outlined,
-  selectedIcon: Icons.event,
-);
-
 /// Navigation frame for signed-in users. Parents and youth see the 4-tab
 /// layout (Home, Discipleship, Community, Profile). Church staff keep their
 /// existing navigation for now.
@@ -86,7 +79,6 @@ class HomeShell extends ConsumerWidget {
         if (role.canViewEngagementDashboard) _dashboard,
         _discipleship,
         _church,
-        _events,
         _profile,
       ];
     }
@@ -133,7 +125,7 @@ class HomeShell extends ConsumerWidget {
     }
 
     var title = destinations[index].label;
-    if (location == '/discipleship/today') title = 'Daily Discipleship';
+    if (location.startsWith('/discipleship')) title = 'Daily Discipleship';
 
     final isWide = MediaQuery.sizeOf(context).width >= 760;
 

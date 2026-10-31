@@ -136,6 +136,18 @@ class _DiscussionCard extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: AppTheme.space2),
+              if (discussion.imageUrl != null) ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    discussion.imageUrl!,
+                    height: 160,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                const SizedBox(height: AppTheme.space2),
+              ],
               Text(
                 discussion.body,
                 style: theme.textTheme.bodyMedium,

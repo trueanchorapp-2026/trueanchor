@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/error/app_exception.dart';
@@ -7,6 +9,7 @@ import '../domain/community_event.dart';
 import '../domain/community_membership.dart';
 import '../domain/community_news.dart';
 import '../domain/community_repository.dart';
+import '../domain/parent_resource.dart';
 import '../domain/region.dart';
 
 class SupabaseCommunityRepository implements CommunityRepository {
@@ -276,10 +279,36 @@ class SupabaseCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<String> uploadDiscussionImage({
+    required String fileName,
+    required List<int> bytes,
+  }) async {
+    try {
+      // The first folder must be the uploader's id: 0028's storage policies
+      // match on it.
+      final path = '$_uid/${DateTime.now().millisecondsSinceEpoch}_'
+          '${CommunityDiscussion.safeImageFileName(fileName)}';
+      await _client.storage.from('discussion-images').uploadBinary(
+            path,
+            Uint8List.fromList(bytes),
+            fileOptions: FileOptions(
+              contentType: CommunityDiscussion.imageContentTypeFor(fileName),
+            ),
+          );
+      return _client.storage
+          .from('discussion-images')
+          .getPublicUrl(path);
+    } catch (e) {
+      throw mapError(e);
+    }
+  }
+
+  @override
   Future<CommunityDiscussion> createDiscussion({
     required String communityId,
     required String title,
     required String body,
+    String? imageUrl,
   }) async {
     try {
       final row = await _client
@@ -289,6 +318,7 @@ class SupabaseCommunityRepository implements CommunityRepository {
             authorId: _uid,
             title: title,
             body: body,
+            imageUrl: imageUrl,
           ))
           .select()
           .single();
@@ -456,6 +486,21 @@ class SupabaseCommunityRepository implements CommunityRepository {
   Future<void> deleteEvent(String eventId) async {
     try {
       await _client.from('community_events').delete().eq('id', eventId);
+    } catch (e) {
+      throw mapError(e);
+    }
+  }
+
+  // ── Parent Resources ───────────────────────────────────────────────────
+
+  @override
+  Future<List<ParentResource>> fetchParentResources() async {
+    try {
+      final rows = await _client
+          .from('parent_resources')
+          .select()
+          .order('sort_order');
+      return rows.map(ParentResource.fromJson).toList();
     } catch (e) {
       throw mapError(e);
     }

@@ -11,6 +11,7 @@ import '../../journal/application/journal_providers.dart'
 import '../../profile/application/profile_providers.dart';
 import '../../profile/domain/user_role.dart';
 import '../application/relationship_providers.dart';
+import '../domain/parent_relationship_sharing.dart';
 import '../domain/relationship.dart';
 
 class RelationshipEditorPage extends ConsumerStatefulWidget {
@@ -42,6 +43,10 @@ class _RelationshipEditorPageState
   /// Null until the author touches a box; see [_sharingFor].
   EntrySharing? _sharing;
 
+  /// Parent authors only; null until hydrated or touched. See
+  /// [ParentRelationshipSharing].
+  bool? _parentSharesWithFamily;
+
   @override
   void dispose() {
     _name.dispose();
@@ -57,6 +62,8 @@ class _RelationshipEditorPageState
     _context.text = relationship.context ?? '';
     _nextStep.text = relationship.nextStep ?? '';
     _originalVisibility = relationship.visibility;
+    _parentSharesWithFamily =
+        ParentRelationshipSharing.sharesWithFamily(relationship.visibility);
   }
 
   /// The checkbox state, decomposed here rather than at hydrate time because
@@ -130,12 +137,17 @@ class _RelationshipEditorPageState
     }
 
     final profile = ref.watch(currentProfileProvider).value;
-
-    // Youth is the safer assumption while the profile loads: only a youth can
-    // author here anyway, and its ladder cannot reach the wider rungs.
+    // Youth is the safer assumption while the profile loads: its ladder cannot
+    // reach the wider rungs, and parents start private anyway.
     final role = profile?.role ?? UserRole.youth;
+    final isParent = role == UserRole.parent;
+
+    final parentShares = _parentSharesWithFamily ??
+        ParentRelationshipSharing.defaultSharesWithFamily;
     final sharing = _sharingFor(role);
-    final visibility = sharing.resolve(role);
+    final visibility = isParent
+        ? ParentRelationshipSharing.resolve(withFamily: parentShares)
+        : sharing.resolve(role);
 
     // Every sharing policy matches on family_id, so an author with no
     // household would be sharing with nobody at all.
@@ -197,32 +209,44 @@ class _RelationshipEditorPageState
                   ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
             const SizedBox(height: AppTheme.space2),
-            SharingCheckbox(
-              enabled: !_saving,
-              value: sharing.withFamily,
-              title: EntrySharing.familyLabelFor(role),
-              subtitle: 'They can see who you are investing in and cheer you '
-                  'on. Guardians and grandparents count as adults.',
-              onChanged: (checked) => _setSharing(
-                sharing.copyWith(withFamily: checked),
-                role,
+            if (isParent)
+              SharingCheckbox(
+                enabled: !_saving,
+                value: parentShares,
+                title: 'My family',
+                subtitle: 'Your family members can see who you are investing '
+                    'in and encourage you.',
+                onChanged: (checked) =>
+                    setState(() => _parentSharesWithFamily = checked),
+              )
+            else ...[
+              SharingCheckbox(
+                enabled: !_saving,
+                value: sharing.withFamily,
+                title: EntrySharing.familyLabelFor(role),
+                subtitle: 'They can see who you are investing in and cheer you '
+                    'on. Guardians and grandparents count as adults.',
+                onChanged: (checked) => _setSharing(
+                  sharing.copyWith(withFamily: checked),
+                  role,
+                ),
               ),
-            ),
-            SharingCheckbox(
-              enabled: !_saving,
-              value: sharing.withPastor,
-              title: EntrySharing.pastorLabelFor(role),
-              // Ticking this also ticks the box above, because
-              // `entry_visibility` has no "pastor but not my parents" value and
-              // the product does not want one. Saying so beats a box that
-              // silently moves on its own.
-              subtitle: 'Your youth pastor reads these alongside the adults in '
-                  'your family, never instead of them.',
-              onChanged: (checked) => _setSharing(
-                sharing.copyWith(withPastor: checked),
-                role,
+              SharingCheckbox(
+                enabled: !_saving,
+                value: sharing.withPastor,
+                title: EntrySharing.pastorLabelFor(role),
+                // Ticking this also ticks the box above, because
+                // `entry_visibility` has no "pastor but not my parents" value
+                // and the product does not want one. Saying so beats a box
+                // that silently moves on its own.
+                subtitle: 'Your youth pastor reads these alongside the adults '
+                    'in your family, never instead of them.',
+                onChanged: (checked) => _setSharing(
+                  sharing.copyWith(withPastor: checked),
+                  role,
+                ),
               ),
-            ),
+            ],
             if (sharesWithNobody) ...[
               const SizedBox(height: AppTheme.space3),
               const NoticeBanner(

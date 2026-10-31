@@ -163,6 +163,17 @@ class _PostHeader extends StatelessWidget {
               ),
             ],
           ),
+          if (post.imageUrl != null) ...[
+            const SizedBox(height: AppTheme.space3),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.network(
+                post.imageUrl!,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            ),
+          ],
           const SizedBox(height: AppTheme.space4),
           Text(post.body, style: theme.textTheme.bodyLarge),
         ],

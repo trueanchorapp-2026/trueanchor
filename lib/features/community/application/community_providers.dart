@@ -7,6 +7,7 @@ import '../domain/community_event.dart';
 import '../domain/community_membership.dart';
 import '../domain/community_news.dart';
 import '../domain/community_repository.dart';
+import '../domain/parent_resource.dart';
 import '../domain/region.dart';
 import '../infrastructure/supabase_community_repository.dart';
 
@@ -209,11 +210,23 @@ class CommunityDiscussionList
     required String communityId,
     required String title,
     required String body,
+    String? imageFileName,
+    List<int>? imageBytes,
   }) async {
-    final created = await ref
-        .read(communityRepositoryProvider)
-        .createDiscussion(
-            communityId: communityId, title: title, body: body);
+    final repo = ref.read(communityRepositoryProvider);
+    String? imageUrl;
+    if (imageBytes != null && imageFileName != null) {
+      imageUrl = await repo.uploadDiscussionImage(
+        fileName: imageFileName,
+        bytes: imageBytes,
+      );
+    }
+    final created = await repo.createDiscussion(
+      communityId: communityId,
+      title: title,
+      body: body,
+      imageUrl: imageUrl,
+    );
     state = AsyncData([created, ...state.value ?? const []]);
   }
 
@@ -358,3 +371,11 @@ class CommunityEventList extends AsyncNotifier<List<CommunityEvent>> {
 final communityEventListProvider =
     AsyncNotifierProvider<CommunityEventList, List<CommunityEvent>>(
         CommunityEventList.new);
+
+// ── Parent Resources ────────────────────────────────────────────────────────
+
+final parentResourcesProvider =
+    FutureProvider<List<ParentResource>>((ref) {
+  ref.watch(currentUserIdProvider);
+  return ref.watch(communityRepositoryProvider).fetchParentResources();
+});
