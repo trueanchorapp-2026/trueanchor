@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/scenic_header.dart';
 import '../domain/devotional.dart';
 
 /// Renders one devotional in four sections: Verse of the Day, Upward
@@ -17,6 +18,7 @@ class DevotionalView extends StatelessWidget {
     this.inwardChild,
     this.outwardChild,
     this.prayerChild,
+    this.scenicVerse = false,
     super.key,
   });
 
@@ -32,9 +34,14 @@ class DevotionalView extends StatelessWidget {
   /// Slot rendered after the Outward section for prayer content.
   final Widget? prayerChild;
 
+  /// Set the verse on the landscape hero band. Reserved for today's
+  /// devotional; history keeps the plain block.
+  final bool scenicVerse;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -43,13 +50,45 @@ class DevotionalView extends StatelessWidget {
         const SizedBox(height: AppTheme.space4),
 
         // — Verse of the Day —
-        _SectionHeader(icon: Icons.auto_stories_outlined, label: 'Verse of the Day'),
-        const SizedBox(height: AppTheme.space3),
-        _ScriptureBlock(devotional: devotional),
+        if (scenicVerse)
+          ScenicHeader(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const _SectionHeader(
+                  icon: Icons.auto_stories_outlined,
+                  label: 'Verse of the Day',
+                ),
+                const SizedBox(height: AppTheme.space3),
+                _VerseText(devotional: devotional),
+              ],
+            ),
+          )
+        else ...[
+          const _SectionHeader(
+            icon: Icons.auto_stories_outlined,
+            label: 'Verse of the Day',
+          ),
+          const SizedBox(height: AppTheme.space3),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppTheme.space4),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainer,
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            ),
+            child: _VerseText(devotional: devotional),
+          ),
+        ],
         const SizedBox(height: AppTheme.space5),
 
         // — Upward Reflection —
-        _SectionHeader(icon: Icons.arrow_upward, label: 'Upward Reflection'),
+        _SectionHeader(
+          icon: Icons.arrow_upward,
+          label: 'Upward Reflection',
+          color: scheme.primary,
+          container: scheme.primaryContainer,
+        ),
         const SizedBox(height: AppTheme.space3),
         for (final paragraph in _paragraphs(devotional.body)) ...[
           Text(paragraph, style: theme.textTheme.bodyLarge),
@@ -60,6 +99,8 @@ class DevotionalView extends StatelessWidget {
         _SectionHeader(
           icon: Icons.self_improvement_outlined,
           label: 'Inward Reflection',
+          color: scheme.secondary,
+          container: scheme.secondaryContainer,
         ),
         const SizedBox(height: AppTheme.space3),
         if (devotional.hasQuestions) ...[
@@ -89,7 +130,12 @@ class DevotionalView extends StatelessWidget {
 
         // — Outward —
         if (devotional.outwardText != null) ...[
-          _SectionHeader(icon: Icons.diversity_3_outlined, label: 'Outward'),
+          _SectionHeader(
+            icon: Icons.diversity_3_outlined,
+            label: 'Outward',
+            color: scheme.tertiary,
+            container: scheme.tertiaryContainer,
+          ),
           const SizedBox(height: AppTheme.space3),
           Text(devotional.outwardText!, style: theme.textTheme.bodyLarge),
           if (outwardChild != null) ...[
@@ -101,7 +147,10 @@ class DevotionalView extends StatelessWidget {
 
         // — Prayer —
         if (prayerChild != null) ...[
-          _SectionHeader(icon: Icons.volunteer_activism_outlined, label: 'Prayer'),
+          const _SectionHeader(
+            icon: Icons.volunteer_activism_outlined,
+            label: 'Prayer',
+          ),
           const SizedBox(height: AppTheme.space3),
           prayerChild!,
           const SizedBox(height: AppTheme.space5),
@@ -111,7 +160,7 @@ class DevotionalView extends StatelessWidget {
           Text(
             devotional.copyrightNotice!,
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+              color: scheme.onSurfaceVariant,
             ),
           ),
       ],
@@ -119,32 +168,51 @@ class DevotionalView extends StatelessWidget {
   }
 }
 
+/// A section label. Upward, Inward and Outward each pass their own
+/// [color]/[container] pair and get a filled badge, so the three directions
+/// of growth read as distinct at a glance.
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.icon, required this.label});
+  const _SectionHeader({
+    required this.icon,
+    required this.label,
+    this.color,
+    this.container,
+  });
 
   final IconData icon;
   final String label;
+  final Color? color;
+  final Color? container;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final foreground = color ?? theme.colorScheme.primary;
     return Row(
       children: [
-        Icon(icon, size: 20, color: theme.colorScheme.primary),
+        if (container != null)
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: container,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 18, color: foreground),
+          )
+        else
+          Icon(icon, size: 20, color: foreground),
         const SizedBox(width: AppTheme.space2),
         Text(
           label,
-          style: theme.textTheme.titleMedium?.copyWith(
-            color: theme.colorScheme.primary,
-          ),
+          style: theme.textTheme.titleMedium?.copyWith(color: foreground),
         ),
       ],
     );
   }
 }
 
-class _ScriptureBlock extends StatelessWidget {
-  const _ScriptureBlock({required this.devotional});
+class _VerseText extends StatelessWidget {
+  const _VerseText({required this.devotional});
 
   final Devotional devotional;
 
@@ -153,31 +221,26 @@ class _ScriptureBlock extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppTheme.space4),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            devotional.scriptureText,
-            style: theme.textTheme.bodyLarge?.copyWith(
-              fontStyle: FontStyle.italic,
-              color: scheme.onSurface,
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          devotional.scriptureText,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontFamily: AppTheme.serifFamily,
+            fontStyle: FontStyle.italic,
+            fontWeight: FontWeight.w400,
+            height: 1.5,
+            color: scheme.onSurface,
           ),
-          const SizedBox(height: AppTheme.space3),
-          Text(
-            devotional.attribution,
-            style: theme.textTheme.labelLarge
-                ?.copyWith(color: scheme.onSurfaceVariant),
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(height: AppTheme.space3),
+        Text(
+          devotional.attribution,
+          style: theme.textTheme.labelLarge
+              ?.copyWith(color: scheme.onSurfaceVariant),
+        ),
+      ],
     );
   }
 }

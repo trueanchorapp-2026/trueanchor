@@ -49,7 +49,7 @@ class _ProfileBody extends ConsumerWidget {
     final isYouth = profile.role == UserRole.youth;
 
     return ListView(
-      padding: const EdgeInsets.all(AppTheme.space4),
+      padding: feedInsets(context),
       children: [
         Row(
           children: [

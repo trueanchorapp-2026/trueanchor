@@ -9,6 +9,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../application/community_providers.dart';
 import '../domain/community_discussion.dart';
+import 'discussion_images.dart';
 
 class CommunityDiscussionsPage extends ConsumerWidget {
   const CommunityDiscussionsPage({super.key});
@@ -78,12 +79,7 @@ class _DiscussionList extends ConsumerWidget {
             }
 
             return ListView.builder(
-              padding: const EdgeInsets.fromLTRB(
-                AppTheme.space4,
-                AppTheme.space4,
-                AppTheme.space4,
-                96,
-              ),
+              padding: feedInsets(context, bottom: AppTheme.fabClearance),
               itemCount: discussions.length,
               itemBuilder: (context, index) =>
                   _DiscussionCard(discussion: discussions[index]),
@@ -136,16 +132,8 @@ class _DiscussionCard extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: AppTheme.space2),
-              if (discussion.imageUrl != null) ...[
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.network(
-                    discussion.imageUrl!,
-                    height: 160,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                  ),
-                ),
+              if (discussion.imageUrls.isNotEmpty) ...[
+                DiscussionImagePreview(urls: discussion.imageUrls),
                 const SizedBox(height: AppTheme.space2),
               ],
               Text(

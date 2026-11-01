@@ -57,7 +57,7 @@ class FamilySummaryPage extends ConsumerWidget {
           }
 
           return ListView.builder(
-            padding: const EdgeInsets.all(AppTheme.space4),
+            padding: feedInsets(context),
             itemCount: youth.length,
             itemBuilder: (context, index) => _YouthSection(youth: youth[index]),
           );

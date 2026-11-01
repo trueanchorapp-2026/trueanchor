@@ -1,21 +1,19 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../../auth/presentation/auth_form_fields.dart';
 import '../application/community_providers.dart';
+import '../domain/discussion_image.dart';
+import 'discussion_images.dart';
 
 class CommunityDiscussionEditorPage extends ConsumerStatefulWidget {
   const CommunityDiscussionEditorPage({super.key});
 
   @override
-  ConsumerState<CommunityDiscussionEditorPage> createState() =>
-      _EditorState();
+  ConsumerState<CommunityDiscussionEditorPage> createState() => _EditorState();
 }
 
 class _EditorState extends ConsumerState<CommunityDiscussionEditorPage> {
@@ -25,8 +23,9 @@ class _EditorState extends ConsumerState<CommunityDiscussionEditorPage> {
   bool _saving = false;
   String? _error;
 
-  XFile? _pickedImage;
-  Uint8List? _imageBytes;
+  final _images = <PendingImage>[];
+
+  int get _remaining => DiscussionImages.maxPerEntry - _images.length;
 
   @override
   void dispose() {
@@ -35,28 +34,9 @@ class _EditorState extends ConsumerState<CommunityDiscussionEditorPage> {
     super.dispose();
   }
 
-  Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 1920,
-      maxHeight: 1080,
-      imageQuality: 80,
-    );
-    if (picked != null) {
-      final bytes = await picked.readAsBytes();
-      setState(() {
-        _pickedImage = picked;
-        _imageBytes = bytes;
-      });
-    }
-  }
-
-  void _removeImage() {
-    setState(() {
-      _pickedImage = null;
-      _imageBytes = null;
-    });
+  Future<void> _pickImages() async {
+    final picked = await pickDiscussionImages(_remaining);
+    if (picked.isNotEmpty && mounted) setState(() => _images.addAll(picked));
   }
 
   Future<void> _save(String communityId) async {
@@ -67,12 +47,13 @@ class _EditorState extends ConsumerState<CommunityDiscussionEditorPage> {
     });
 
     try {
-      await ref.read(communityDiscussionListProvider.notifier).add(
+      await ref
+          .read(communityDiscussionListProvider.notifier)
+          .add(
             communityId: communityId,
             title: _title.text,
             body: _body.text,
-            imageFileName: _pickedImage?.name,
-            imageBytes: _imageBytes,
+            images: _images,
           );
       if (mounted) {
         showAppSnack(context, 'Discussion started.');
@@ -141,38 +122,24 @@ class _EditorState extends ConsumerState<CommunityDiscussionEditorPage> {
                 (v?.trim().isEmpty ?? true) ? 'Content is required.' : null,
           ),
           const SizedBox(height: AppTheme.space4),
-          if (_imageBytes != null) ...[
-            Stack(
-              alignment: Alignment.topRight,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.memory(
-                          _imageBytes!,
-                          height: 200,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                        ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(4),
-                  child: IconButton.filled(
-                    onPressed: _saving ? null : _removeImage,
-                    icon: const Icon(Icons.close),
-                    style: IconButton.styleFrom(
-                      backgroundColor: Colors.black54,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
+          if (_images.isNotEmpty) ...[
+            PendingImageStrip(
+              images: _images,
+              enabled: !_saving,
+              size: 120,
+              onRemove: (index) => setState(() => _images.removeAt(index)),
             ),
             const SizedBox(height: AppTheme.space3),
           ],
           OutlinedButton.icon(
-            onPressed: _saving ? null : _pickImage,
-            icon: const Icon(Icons.image_outlined),
-            label: Text(_imageBytes != null ? 'Change image' : 'Add image'),
+            onPressed: _saving || _remaining == 0 ? null : _pickImages,
+            icon: const Icon(Icons.add_photo_alternate_outlined),
+            label: Text(
+              _remaining == 0
+                  ? 'Image limit reached'
+                  : 'Add images (${_images.length}/'
+                        '${DiscussionImages.maxPerEntry})',
+            ),
           ),
           if (_error != null) ...[
             const SizedBox(height: AppTheme.space4),

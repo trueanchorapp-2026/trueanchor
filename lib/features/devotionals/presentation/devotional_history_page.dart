@@ -44,7 +44,7 @@ class DevotionalHistoryPage extends ConsumerWidget {
 
           return ListView.separated(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(AppTheme.space4),
+            padding: feedInsets(context),
             itemCount: devotionals.length,
             separatorBuilder: (_, _) => const SizedBox(height: AppTheme.space2),
             itemBuilder: (context, index) {

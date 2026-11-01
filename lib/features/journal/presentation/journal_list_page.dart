@@ -54,12 +54,7 @@ class JournalListPage extends ConsumerWidget {
             }
 
             return ListView.builder(
-              padding: const EdgeInsets.fromLTRB(
-                AppTheme.space4,
-                AppTheme.space4,
-                AppTheme.space4,
-                96, // clears the FAB
-              ),
+              padding: feedInsets(context, bottom: AppTheme.fabClearance),
               itemCount: entries.length,
               itemBuilder: (context, index) {
                 final entry = entries[index];

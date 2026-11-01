@@ -83,12 +83,7 @@ class _EventList extends ConsumerWidget {
 
             final now = DateTime.now();
             return ListView.builder(
-              padding: const EdgeInsets.fromLTRB(
-                AppTheme.space4,
-                AppTheme.space4,
-                AppTheme.space4,
-                96,
-              ),
+              padding: feedInsets(context, bottom: AppTheme.fabClearance),
               itemCount: events.length,
               itemBuilder: (context, index) =>
                   _EventCard(event: events[index], isPast: events[index].isPast(now)),

@@ -2,18 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/widgets/sub_tab_bar.dart';
 import '../../profile/application/profile_providers.dart';
 import '../../profile/domain/user_role.dart';
 
-class _SubTab {
-  const _SubTab({required this.route, required this.label});
-
-  final String route;
-  final String label;
-}
-
-/// Sub-tab navigation within the Discipleship main tab. Renders a row of
-/// filter chips at the top and the matched child route below.
+/// Sub-tab navigation within the Discipleship main tab. Renders a
+/// [SubTabBar] at the top and the matched child route below.
 class DiscipleshipShell extends ConsumerWidget {
   const DiscipleshipShell({
     required this.location,
@@ -24,21 +18,21 @@ class DiscipleshipShell extends ConsumerWidget {
   final String location;
   final Widget child;
 
-  static List<_SubTab> _tabsFor(UserRole? role) {
+  static List<SubTab> _tabsFor(UserRole? role) {
     return [
-      const _SubTab(route: '/discipleship/today', label: 'Today'),
-      const _SubTab(route: '/discipleship/history', label: 'History'),
-      const _SubTab(route: '/discipleship/journal', label: 'Journal'),
+      const SubTab(route: '/discipleship/today', label: 'Today'),
+      const SubTab(route: '/discipleship/history', label: 'History'),
+      const SubTab(route: '/discipleship/journal', label: 'Journal'),
       if (role != null && role.canUseMessaging)
-        const _SubTab(route: '/discipleship/messages', label: 'Messages'),
+        const SubTab(route: '/discipleship/messages', label: 'Messages'),
       if (role != null && role.canViewRelationships)
-        const _SubTab(
+        const SubTab(
             route: '/discipleship/relationships', label: 'Love in Action'),
       if (role != null && role.canViewYouthSummary)
-        const _SubTab(route: '/discipleship/my-youth', label: 'My Youth'),
-      const _SubTab(route: '/discipleship/milestones', label: 'Milestones'),
+        const SubTab(route: '/discipleship/my-youth', label: 'My Youth'),
+      const SubTab(route: '/discipleship/milestones', label: 'Milestones'),
       if (role != null && role.isChurchStaff)
-        const _SubTab(route: '/discipleship/events', label: 'Events'),
+        const SubTab(route: '/discipleship/events', label: 'Events'),
     ];
   }
 
@@ -52,25 +46,11 @@ class DiscipleshipShell extends ConsumerWidget {
 
     return Column(
       children: [
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
-            children: [
-              for (var i = 0; i < tabs.length; i++)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    label: Text(tabs[i].label),
-                    selected: i == selected,
-                    onSelected: (_) => context.go(tabs[i].route),
-                    showCheckmark: false,
-                  ),
-                ),
-            ],
-          ),
+        SubTabBar(
+          tabs: tabs,
+          selectedIndex: selected,
+          onSelected: (tab) => context.go(tab.route),
         ),
-        const Divider(height: 1),
         Expanded(child: child),
       ],
     );

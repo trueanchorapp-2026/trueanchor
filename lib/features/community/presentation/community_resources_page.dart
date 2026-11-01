@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../application/community_providers.dart';
 
@@ -26,7 +27,10 @@ class CommunityResourcesPage extends ConsumerWidget {
         }
 
         return ListView.separated(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: feedInsets(context).copyWith(
+            top: AppTheme.space2,
+            bottom: AppTheme.space2,
+          ),
           itemCount: resources.length,
           separatorBuilder: (_, _) => const Divider(height: 1),
           itemBuilder: (context, index) {

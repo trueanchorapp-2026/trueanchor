@@ -62,7 +62,7 @@ abstract interface class CommunityRepository {
     required String communityId,
     required String title,
     required String body,
-    String? imageUrl,
+    List<String> imageUrls = const [],
   });
   Future<CommunityDiscussion> updateDiscussion({
     required String discussionId,
@@ -76,6 +76,7 @@ abstract interface class CommunityRepository {
   Future<DiscussionReply> createReply({
     required String discussionId,
     required String body,
+    List<String> imageUrls = const [],
   });
   Future<void> deleteReply(String replyId);
 

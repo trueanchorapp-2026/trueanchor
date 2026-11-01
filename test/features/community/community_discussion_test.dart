@@ -1,60 +1,71 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trueanchor/features/community/domain/community_discussion.dart';
 
-Map<String, dynamic> _row({Object? imageUrl}) => {
+Map<String, dynamic> _row({Object? imageUrls}) => {
       'id': 'd1',
       'community_id': 'c1',
+      'discussion_id': 'd1',
       'author_id': 'u1',
       'title': 'School board meeting',
       'body': 'Who is going Tuesday?',
       'created_at': '2026-10-01T12:00:00Z',
       'updated_at': '2026-10-01T12:00:00Z',
-      'image_url': ?imageUrl,
+      'image_urls': ?imageUrls,
     };
 
 void main() {
-  group('CommunityDiscussion image', () {
-    test('reads image_url when present and null when absent', () {
+  group('CommunityDiscussion images', () {
+    test('reads image_urls in order, and empty when absent', () {
       expect(
-        CommunityDiscussion.fromJson(_row(imageUrl: 'https://x/a.png'))
-            .imageUrl,
-        'https://x/a.png',
+        CommunityDiscussion.fromJson(
+          _row(imageUrls: ['https://x/a', 'https://x/b']),
+        ).imageUrls,
+        ['https://x/a', 'https://x/b'],
       );
-      expect(CommunityDiscussion.fromJson(_row()).imageUrl, isNull);
+      expect(CommunityDiscussion.fromJson(_row()).imageUrls, isEmpty);
     });
 
-    test('insert payload carries image_url only when there is one', () {
-      Map<String, dynamic> insert({String? imageUrl}) =>
-          CommunityDiscussion.toInsertJson(
-            communityId: 'c1',
-            authorId: 'u1',
-            title: 'Title',
-            body: 'Body',
-            imageUrl: imageUrl,
-          );
-
-      expect(insert(imageUrl: 'https://x/a.png')['image_url'],
-          'https://x/a.png');
-      expect(insert().containsKey('image_url'), isFalse);
-    });
-
-    test('maps known extensions to content types, case-insensitively', () {
-      expect(CommunityDiscussion.imageContentTypeFor('a.PNG'), 'image/png');
-      expect(CommunityDiscussion.imageContentTypeFor('a.jpeg'), 'image/jpeg');
-      expect(CommunityDiscussion.imageContentTypeFor('a.webp'), 'image/webp');
-    });
-
-    test('falls back to JPEG for unknown or missing extensions', () {
-      expect(CommunityDiscussion.imageContentTypeFor('a.heic'), 'image/jpeg');
-      expect(CommunityDiscussion.imageContentTypeFor('noext'), 'image/jpeg');
-    });
-
-    test('strips path-unsafe characters from file names', () {
+    test('insert payload carries image_urls', () {
       expect(
-        CommunityDiscussion.safeImageFileName('my photo/../x?.png'),
-        'my_photo_.._x_.png',
+        CommunityDiscussion.toInsertJson(
+          communityId: 'c1',
+          authorId: 'u1',
+          title: 'Title',
+          body: 'Body',
+          imageUrls: ['https://x/a'],
+        )['image_urls'],
+        ['https://x/a'],
       );
-      expect(CommunityDiscussion.safeImageFileName(''), 'image');
+    });
+  });
+
+  group('DiscussionReply images', () {
+    test('reads image_urls, and empty when absent', () {
+      expect(
+        DiscussionReply.fromJson(_row(imageUrls: ['https://x/a'])).imageUrls,
+        ['https://x/a'],
+      );
+      expect(DiscussionReply.fromJson(_row()).imageUrls, isEmpty);
+    });
+
+    test('insert payload carries image_urls, defaulting to none', () {
+      expect(
+        DiscussionReply.toInsertJson(
+          discussionId: 'd1',
+          authorId: 'u1',
+          body: 'Nice',
+          imageUrls: ['https://x/a'],
+        )['image_urls'],
+        ['https://x/a'],
+      );
+      expect(
+        DiscussionReply.toInsertJson(
+          discussionId: 'd1',
+          authorId: 'u1',
+          body: 'Nice',
+        )['image_urls'],
+        isEmpty,
+      );
     });
   });
 }

@@ -94,7 +94,12 @@ class _DevotionalScroll extends ConsumerWidget {
 
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(AppTheme.space5),
+      // A 16px gutter, not 24, on phones: the hero band and body text get the
+      // width back.
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTheme.space4,
+        vertical: AppTheme.space5,
+      ),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: AppTheme.maxContentWidth),
@@ -117,6 +122,7 @@ class _DevotionalScroll extends ConsumerWidget {
               ],
               DevotionalView(
                 devotional: devotional,
+                scenicVerse: true,
                 inwardChild: InwardReflectionCard(
                   devotionalId: devotional.id,
                 ),

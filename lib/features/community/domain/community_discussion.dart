@@ -1,3 +1,5 @@
+import 'discussion_image.dart';
+
 class CommunityDiscussion {
   const CommunityDiscussion({
     required this.id,
@@ -9,7 +11,7 @@ class CommunityDiscussion {
     required this.updatedAt,
     this.authorName,
     this.replyCount,
-    this.imageUrl,
+    this.imageUrls = const [],
   });
 
   factory CommunityDiscussion.fromJson(Map<String, dynamic> json) =>
@@ -21,7 +23,7 @@ class CommunityDiscussion {
         body: json['body'] as String,
         authorName: _authorNameFrom(json['author']),
         replyCount: json['reply_count'] as int?,
-        imageUrl: json['image_url'] as String?,
+        imageUrls: DiscussionImages.urlsFromJson(json['image_urls']),
         createdAt: DateTime.tryParse(json['created_at'] as String? ?? '')
                 ?.toLocal() ??
             DateTime.now(),
@@ -37,7 +39,7 @@ class CommunityDiscussion {
   final String body;
   final String? authorName;
   final int? replyCount;
-  final String? imageUrl;
+  final List<String> imageUrls;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -57,39 +59,15 @@ class CommunityDiscussion {
     required String authorId,
     required String title,
     required String body,
-    String? imageUrl,
+    List<String> imageUrls = const [],
   }) =>
       {
         'community_id': communityId,
         'author_id': authorId,
         'title': title.trim(),
         'body': body.trim(),
-        'image_url': ?imageUrl,
+        'image_urls': imageUrls,
       };
-
-  /// Image types the `discussion-images` bucket accepts (see 0028).
-  static const imageContentTypes = {
-    'jpg': 'image/jpeg',
-    'jpeg': 'image/jpeg',
-    'png': 'image/png',
-    'gif': 'image/gif',
-    'webp': 'image/webp',
-  };
-
-  /// The content type to upload [fileName] as. Unknown extensions fall back
-  /// to JPEG, which is what the picker re-encodes to when it compresses.
-  static String imageContentTypeFor(String fileName) {
-    final dot = fileName.lastIndexOf('.');
-    final extension =
-        dot == -1 ? '' : fileName.substring(dot + 1).toLowerCase();
-    return imageContentTypes[extension] ?? 'image/jpeg';
-  }
-
-  /// [fileName] reduced to characters that are safe in a storage path.
-  static String safeImageFileName(String fileName) {
-    final cleaned = fileName.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
-    return cleaned.isEmpty ? 'image' : cleaned;
-  }
 
   static Map<String, dynamic> toUpdateJson({
     required String title,
@@ -109,6 +87,7 @@ class DiscussionReply {
     required this.body,
     required this.createdAt,
     this.authorName,
+    this.imageUrls = const [],
   });
 
   factory DiscussionReply.fromJson(Map<String, dynamic> json) =>
@@ -118,6 +97,7 @@ class DiscussionReply {
         authorId: json['author_id'] as String,
         body: json['body'] as String,
         authorName: _authorNameFrom(json['author']),
+        imageUrls: DiscussionImages.urlsFromJson(json['image_urls']),
         createdAt: DateTime.tryParse(json['created_at'] as String? ?? '')
                 ?.toLocal() ??
             DateTime.now(),
@@ -128,6 +108,7 @@ class DiscussionReply {
   final String authorId;
   final String body;
   final String? authorName;
+  final List<String> imageUrls;
   final DateTime createdAt;
 
   bool isAuthoredBy(String userId) => authorId == userId;
@@ -145,10 +126,12 @@ class DiscussionReply {
     required String discussionId,
     required String authorId,
     required String body,
+    List<String> imageUrls = const [],
   }) =>
       {
         'discussion_id': discussionId,
         'author_id': authorId,
         'body': body.trim(),
+        'image_urls': imageUrls,
       };
 }

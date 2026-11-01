@@ -7,6 +7,7 @@ import '../domain/community_event.dart';
 import '../domain/community_membership.dart';
 import '../domain/community_news.dart';
 import '../domain/community_repository.dart';
+import '../domain/discussion_image.dart';
 import '../domain/parent_resource.dart';
 import '../domain/region.dart';
 import '../infrastructure/supabase_community_repository.dart';
@@ -210,22 +211,15 @@ class CommunityDiscussionList
     required String communityId,
     required String title,
     required String body,
-    String? imageFileName,
-    List<int>? imageBytes,
+    List<PendingImage> images = const [],
   }) async {
     final repo = ref.read(communityRepositoryProvider);
-    String? imageUrl;
-    if (imageBytes != null && imageFileName != null) {
-      imageUrl = await repo.uploadDiscussionImage(
-        fileName: imageFileName,
-        bytes: imageBytes,
-      );
-    }
+    final imageUrls = await _uploadImages(repo, images);
     final created = await repo.createDiscussion(
       communityId: communityId,
       title: title,
       body: body,
-      imageUrl: imageUrl,
+      imageUrls: imageUrls,
     );
     state = AsyncData([created, ...state.value ?? const []]);
   }
@@ -259,6 +253,24 @@ final communityDiscussionListProvider =
     AsyncNotifierProvider<CommunityDiscussionList,
         List<CommunityDiscussion>>(CommunityDiscussionList.new);
 
+/// Uploads [images] in parallel, keeping their order, before the post or
+/// reply that references them is written. Over the cap fails before anything
+/// is uploaded, rather than at the database check afterwards.
+Future<List<String>> _uploadImages(
+  CommunityRepository repo,
+  List<PendingImage> images,
+) {
+  if (images.length > DiscussionImages.maxPerEntry) {
+    throw ArgumentError(
+      'At most ${DiscussionImages.maxPerEntry} images can be attached.',
+    );
+  }
+  return Future.wait([
+    for (final image in images)
+      repo.uploadDiscussionImage(fileName: image.fileName, bytes: image.bytes),
+  ]);
+}
+
 // ── Replies ──────────────────────────────────────────────────────────────────
 
 class DiscussionReplies extends AsyncNotifier<List<DiscussionReply>> {
@@ -278,10 +290,17 @@ class DiscussionReplies extends AsyncNotifier<List<DiscussionReply>> {
     state = await AsyncValue.guard(build);
   }
 
-  Future<void> add({required String body}) async {
-    final created = await ref
-        .read(communityRepositoryProvider)
-        .createReply(discussionId: discussionId, body: body);
+  Future<void> add({
+    required String body,
+    List<PendingImage> images = const [],
+  }) async {
+    final repo = ref.read(communityRepositoryProvider);
+    final imageUrls = await _uploadImages(repo, images);
+    final created = await repo.createReply(
+      discussionId: discussionId,
+      body: body,
+      imageUrls: imageUrls,
+    );
     state = AsyncData([...state.value ?? const [], created]);
   }
 

@@ -92,12 +92,7 @@ class _NewsList extends ConsumerWidget {
             }
 
             return ListView.builder(
-              padding: const EdgeInsets.fromLTRB(
-                AppTheme.space4,
-                AppTheme.space4,
-                AppTheme.space4,
-                96,
-              ),
+              padding: feedInsets(context, bottom: AppTheme.fabClearance),
               itemCount: news.length,
               itemBuilder: (context, index) =>
                   _NewsCard(item: news[index]),

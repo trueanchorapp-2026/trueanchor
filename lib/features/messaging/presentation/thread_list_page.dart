@@ -196,12 +196,7 @@ class ThreadListPage extends ConsumerWidget {
             final itemCount =
                 1 + threads.length + (hasGroups ? 1 + groups.length : 0);
             return ListView.separated(
-              padding: const EdgeInsets.fromLTRB(
-                AppTheme.space4,
-                AppTheme.space4,
-                AppTheme.space4,
-                96, // clears the FAB
-              ),
+              padding: feedInsets(context, bottom: AppTheme.fabClearance),
               itemCount: itemCount,
               separatorBuilder: (_, _) =>
                   const SizedBox(height: AppTheme.space2),

@@ -33,6 +33,168 @@ class ContentColumn extends StatelessWidget {
   }
 }
 
+/// Publishes the width of the shell's body (the screen minus the navigation
+/// rail) so [feedInsets] can centre content without a LayoutBuilder per page.
+class ContentWidthScope extends InheritedWidget {
+  const ContentWidthScope({
+    required this.width,
+    required super.child,
+    super.key,
+  });
+
+  final double width;
+
+  @override
+  bool updateShouldNotify(ContentWidthScope oldWidget) =>
+      width != oldWidget.width;
+}
+
+/// List padding that centres content and caps it at [maxWidth] on wide web
+/// viewports, with a 16px gutter on phones. Goes on the scrollable's own
+/// `padding` rather than wrapping it in a ConstrainedBox, so the scrollable
+/// stays full width and the scroll wheel and pull-to-refresh work anywhere
+/// on screen, not just over the column.
+///
+/// Pass [AppTheme.fabClearance] as [bottom] for a list under a FAB.
+EdgeInsets feedInsets(
+  BuildContext context, {
+  double bottom = AppTheme.space4,
+  double maxWidth = AppTheme.maxFeedWidth,
+}) {
+  final width =
+      context.dependOnInheritedWidgetOfExactType<ContentWidthScope>()?.width ??
+          MediaQuery.sizeOf(context).width;
+  return feedInsetsFor(width, bottom: bottom, maxWidth: maxWidth);
+}
+
+/// [feedInsets] for a known [width]; split out so it can be unit tested.
+EdgeInsets feedInsetsFor(
+  double width, {
+  double bottom = AppTheme.space4,
+  double maxWidth = AppTheme.maxFeedWidth,
+}) {
+  final side = width > maxWidth + 2 * AppTheme.space4
+      ? (width - maxWidth) / 2
+      : AppTheme.space4;
+  return EdgeInsets.fromLTRB(side, AppTheme.space4, side, bottom);
+}
+
+/// A [ListView] of [children] padded by [feedInsets]: centred and
+/// width-capped on wide screens, edge to edge with a 16px gutter on phones.
+class ContentList extends StatelessWidget {
+  const ContentList({
+    required this.children,
+    this.maxWidth = AppTheme.maxFeedWidth,
+    this.bottom = AppTheme.space4,
+    this.physics,
+    super.key,
+  });
+
+  final List<Widget> children;
+  final double maxWidth;
+  final double bottom;
+  final ScrollPhysics? physics;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: feedInsets(context, bottom: bottom, maxWidth: maxWidth),
+      physics: physics,
+      children: children,
+    );
+  }
+}
+
+/// The app's standard tappable summary card: a leading icon, a title, an
+/// optional subtitle, and either a chevron (when tappable) or [trailing].
+/// [child] adds a body below the header row, for cards that list items.
+class SectionCard extends StatelessWidget {
+  const SectionCard({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    this.iconColor,
+    this.color,
+    this.trailing,
+    this.onTap,
+    this.child,
+    super.key,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final Color? iconColor;
+
+  /// Card fill; defaults to the theme's card colour.
+  final Color? color;
+
+  /// Replaces the default chevron.
+  final Widget? trailing;
+  final VoidCallback? onTap;
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final trailingWidget = trailing ??
+        (onTap != null
+            ? Icon(Icons.chevron_right, color: scheme.onSurfaceVariant)
+            : null);
+
+    return Card(
+      margin: EdgeInsets.zero,
+      color: color,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(AppTheme.space4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, size: 28, color: iconColor ?? scheme.primary),
+                  const SizedBox(width: AppTheme.space3),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(title, style: theme.textTheme.titleSmall),
+                        if (subtitle != null) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            subtitle!,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  if (trailingWidget != null) ...[
+                    const SizedBox(width: AppTheme.space2),
+                    trailingWidget,
+                  ],
+                ],
+              ),
+              if (child != null) ...[
+                const SizedBox(height: AppTheme.space3),
+                child!,
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Renders an [AsyncValue] with consistent loading and error affordances.
 /// Keeps `.when(...)` boilerplate out of every page.
 class AsyncValueView<T> extends StatelessWidget {
@@ -157,7 +319,10 @@ class AppChip extends StatelessWidget {
         muted ? scheme.onSurfaceVariant : scheme.onSecondaryContainer;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTheme.space2,
+        vertical: 3,
+      ),
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(999),
@@ -167,7 +332,7 @@ class AppChip extends StatelessWidget {
         children: [
           if (icon != null) ...[
             Icon(icon, size: 13, color: foreground),
-            const SizedBox(width: 4),
+            const SizedBox(width: AppTheme.space1),
           ],
           Text(
             label,
@@ -199,7 +364,7 @@ class NoticeBanner extends StatelessWidget {
       padding: const EdgeInsets.all(AppTheme.space3),
       decoration: BoxDecoration(
         color: scheme.secondaryContainer,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -329,7 +494,10 @@ void showAppSnack(BuildContext context, String message, {bool isError = false}) 
     ..hideCurrentSnackBar()
     ..showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Text(
+          message,
+          style: isError ? TextStyle(color: scheme.onErrorContainer) : null,
+        ),
         backgroundColor: isError ? scheme.errorContainer : null,
         behavior: SnackBarBehavior.floating,
       ),

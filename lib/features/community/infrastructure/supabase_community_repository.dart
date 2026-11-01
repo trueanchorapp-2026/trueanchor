@@ -9,6 +9,7 @@ import '../domain/community_event.dart';
 import '../domain/community_membership.dart';
 import '../domain/community_news.dart';
 import '../domain/community_repository.dart';
+import '../domain/discussion_image.dart';
 import '../domain/parent_resource.dart';
 import '../domain/region.dart';
 
@@ -16,6 +17,8 @@ class SupabaseCommunityRepository implements CommunityRepository {
   SupabaseCommunityRepository(this._client);
 
   final SupabaseClient _client;
+
+  static var _uploadSeq = 0;
 
   String get _uid => _client.auth.currentUser!.id;
 
@@ -285,14 +288,15 @@ class SupabaseCommunityRepository implements CommunityRepository {
   }) async {
     try {
       // The first folder must be the uploader's id: 0028's storage policies
-      // match on it.
+      // match on it. The sequence number keeps parallel uploads of
+      // same-named files (common on web) from colliding.
       final path = '$_uid/${DateTime.now().millisecondsSinceEpoch}_'
-          '${CommunityDiscussion.safeImageFileName(fileName)}';
+          '${_uploadSeq++}_${DiscussionImages.safeFileName(fileName)}';
       await _client.storage.from('discussion-images').uploadBinary(
             path,
             Uint8List.fromList(bytes),
             fileOptions: FileOptions(
-              contentType: CommunityDiscussion.imageContentTypeFor(fileName),
+              contentType: DiscussionImages.contentTypeFor(fileName),
             ),
           );
       return _client.storage
@@ -308,7 +312,7 @@ class SupabaseCommunityRepository implements CommunityRepository {
     required String communityId,
     required String title,
     required String body,
-    String? imageUrl,
+    List<String> imageUrls = const [],
   }) async {
     try {
       final row = await _client
@@ -318,7 +322,7 @@ class SupabaseCommunityRepository implements CommunityRepository {
             authorId: _uid,
             title: title,
             body: body,
-            imageUrl: imageUrl,
+            imageUrls: imageUrls,
           ))
           .select()
           .single();
@@ -380,6 +384,7 @@ class SupabaseCommunityRepository implements CommunityRepository {
   Future<DiscussionReply> createReply({
     required String discussionId,
     required String body,
+    List<String> imageUrls = const [],
   }) async {
     try {
       final row = await _client
@@ -388,6 +393,7 @@ class SupabaseCommunityRepository implements CommunityRepository {
             discussionId: discussionId,
             authorId: _uid,
             body: body,
+            imageUrls: imageUrls,
           ))
           .select()
           .single();

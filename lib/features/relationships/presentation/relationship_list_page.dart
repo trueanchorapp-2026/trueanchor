@@ -63,11 +63,9 @@ class RelationshipListPage extends ConsumerWidget {
             }
 
             return ListView.builder(
-              padding: EdgeInsets.fromLTRB(
-                AppTheme.space4,
-                AppTheme.space4,
-                AppTheme.space4,
-                canAuthor ? 96 : AppTheme.space4, // clears the FAB
+              padding: feedInsets(
+                context,
+                bottom: canAuthor ? AppTheme.fabClearance : AppTheme.space4,
               ),
               itemCount: relationships.length,
               itemBuilder: (context, index) => _RelationshipCard(
