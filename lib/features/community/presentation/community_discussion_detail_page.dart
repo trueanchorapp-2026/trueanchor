@@ -9,6 +9,7 @@ import '../application/community_providers.dart';
 import '../domain/community_discussion.dart';
 import '../domain/discussion_image.dart';
 import 'discussion_images.dart';
+import 'topic_tag_widgets.dart';
 
 class CommunityDiscussionDetailPage extends ConsumerStatefulWidget {
   const CommunityDiscussionDetailPage({required this.discussionId, super.key});
@@ -186,6 +187,10 @@ class _PostHeader extends StatelessWidget {
               ),
             ],
           ),
+          if (post.tagIds.isNotEmpty) ...[
+            const SizedBox(height: AppTheme.space2),
+            TagChipRow(tagIds: post.tagIds),
+          ],
           if (post.imageUrls.isNotEmpty) ...[
             const SizedBox(height: AppTheme.space3),
             DiscussionImageGallery(urls: post.imageUrls),

@@ -39,6 +39,47 @@ void main() {
     });
   });
 
+  group('CommunityDiscussion search fields', () {
+    test('reads the search RPC row: tags, counts, flat author name', () {
+      final d = CommunityDiscussion.fromJson({
+        ..._row(),
+        'tag_ids': ['t1', 't2'],
+        'reply_count': 4,
+        'last_activity_at': '2026-10-02T08:00:00Z',
+        'author_first_name': 'Ana',
+        'author_last_name': 'Diaz',
+      });
+
+      expect(d.tagIds, ['t1', 't2']);
+      expect(d.replyCount, 4);
+      expect(d.lastActivityAt, DateTime.utc(2026, 10, 2, 8).toLocal());
+      expect(d.authorName, 'Ana Diaz');
+    });
+
+    test('defaults when the search fields are absent', () {
+      final d = CommunityDiscussion.fromJson(_row());
+      expect(d.tagIds, isEmpty);
+      expect(d.lastActivityAt, isNull);
+      expect(d.authorName, isNull);
+    });
+
+    test('still reads an embedded author', () {
+      final d = CommunityDiscussion.fromJson({
+        ..._row(),
+        'author': {'first_name': 'Sam', 'last_name': null},
+      });
+      expect(d.authorName, 'Sam');
+    });
+
+    test('copyWith replaces tags and counts only', () {
+      final d = CommunityDiscussion.fromJson(_row());
+      final updated = d.copyWith(tagIds: ['t9'], replyCount: 2);
+      expect(updated.tagIds, ['t9']);
+      expect(updated.replyCount, 2);
+      expect(updated.title, d.title);
+    });
+  });
+
   group('DiscussionReply images', () {
     test('reads image_urls, and empty when absent', () {
       expect(

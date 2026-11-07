@@ -8,8 +8,11 @@ import '../domain/community_membership.dart';
 import '../domain/community_news.dart';
 import '../domain/community_repository.dart';
 import '../domain/discussion_image.dart';
+import '../domain/discussion_query.dart';
 import '../domain/parent_resource.dart';
 import '../domain/region.dart';
+import '../domain/resource_filter.dart';
+import '../domain/topic_tag.dart';
 import '../infrastructure/supabase_community_repository.dart';
 
 final communityRepositoryProvider = Provider<CommunityRepository>(
@@ -189,18 +192,49 @@ final communityNewsListProvider =
     AsyncNotifierProvider<CommunityNewsList, List<CommunityNewsItem>>(
         CommunityNewsList.new);
 
+// ── Topic tags ───────────────────────────────────────────────────────────────
+
+final topicTagsProvider = FutureProvider<List<TopicTag>>((ref) {
+  ref.watch(currentUserIdProvider);
+  return ref.watch(communityRepositoryProvider).fetchTopicTags();
+});
+
+/// Tags by id, for labelling chips. Empty until tags load.
+final topicTagsByIdProvider = Provider<Map<String, TopicTag>>((ref) => {
+      for (final tag in ref.watch(topicTagsProvider).value ?? const <TopicTag>[])
+        tag.id: tag,
+    });
+
 // ── Discussions ──────────────────────────────────────────────────────────────
+
+class DiscussionQueryNotifier extends Notifier<DiscussionQuery> {
+  @override
+  DiscussionQuery build() {
+    ref.watch(currentUserIdProvider);
+    return const DiscussionQuery();
+  }
+
+  void toggleTag(String tagId) => state = state.toggleTag(tagId);
+  void setText(String text) => state = state.copyWith(text: text);
+  void setSort(DiscussionSort sort) => state = state.copyWith(sort: sort);
+  void clear() => state = state.cleared();
+}
+
+final discussionQueryProvider =
+    NotifierProvider<DiscussionQueryNotifier, DiscussionQuery>(
+        DiscussionQueryNotifier.new);
 
 class CommunityDiscussionList
     extends AsyncNotifier<List<CommunityDiscussion>> {
   @override
   Future<List<CommunityDiscussion>> build() async {
     ref.watch(currentUserIdProvider);
+    final query = ref.watch(discussionQueryProvider);
     final membership = await ref.watch(myMembershipProvider.future);
     if (membership == null) return const [];
     return ref
         .watch(communityRepositoryProvider)
-        .fetchDiscussions(membership.communityId);
+        .searchDiscussions(membership.communityId, query);
   }
 
   Future<void> refresh() async {
@@ -212,7 +246,13 @@ class CommunityDiscussionList
     required String title,
     required String body,
     List<PendingImage> images = const [],
+    List<String> tagIds = const [],
   }) async {
+    if (tagIds.length > TopicTag.maxPerPost) {
+      throw ArgumentError(
+        'At most ${TopicTag.maxPerPost} tags can be chosen.',
+      );
+    }
     final repo = ref.read(communityRepositoryProvider);
     final imageUrls = await _uploadImages(repo, images);
     final created = await repo.createDiscussion(
@@ -220,8 +260,58 @@ class CommunityDiscussionList
       title: title,
       body: body,
       imageUrls: imageUrls,
+      tagIds: tagIds,
     );
-    state = AsyncData([created, ...state.value ?? const []]);
+    // A new post belongs on top when nothing narrows the list and the sort
+    // favours recent posts; otherwise let the server decide where it goes.
+    final query = ref.read(discussionQueryProvider);
+    final goesFirst = !query.isFiltered &&
+        (query.sort == DiscussionSort.newest ||
+            query.sort == DiscussionSort.recentActivity);
+    if (goesFirst) {
+      state = AsyncData([created, ...state.value ?? const []]);
+    } else {
+      await refresh();
+    }
+  }
+
+  Future<void> updateTags({
+    required String discussionId,
+    required List<String> tagIds,
+  }) async {
+    if (tagIds.length > TopicTag.maxPerPost) {
+      throw ArgumentError(
+        'At most ${TopicTag.maxPerPost} tags can be chosen.',
+      );
+    }
+    await ref
+        .read(communityRepositoryProvider)
+        .setDiscussionTags(discussionId: discussionId, tagIds: tagIds);
+    if (ref.read(discussionQueryProvider).tagIds.isNotEmpty) {
+      // The post may no longer match the active tag filter.
+      await refresh();
+      return;
+    }
+    state = AsyncData([
+      for (final d in state.value ?? const <CommunityDiscussion>[])
+        if (d.id == discussionId) d.copyWith(tagIds: tagIds) else d,
+    ]);
+  }
+
+  /// Reflects a new reply in the list without a refetch (or reorder).
+  void noteReplyAdded(String discussionId) {
+    final current = state.value;
+    if (current == null) return;
+    state = AsyncData([
+      for (final d in current)
+        if (d.id == discussionId)
+          d.copyWith(
+            replyCount: (d.replyCount ?? 0) + 1,
+            lastActivityAt: DateTime.now(),
+          )
+        else
+          d,
+    ]);
   }
 
   Future<void> edit({
@@ -302,6 +392,9 @@ class DiscussionReplies extends AsyncNotifier<List<DiscussionReply>> {
       imageUrls: imageUrls,
     );
     state = AsyncData([...state.value ?? const [], created]);
+    ref
+        .read(communityDiscussionListProvider.notifier)
+        .noteReplyAdded(discussionId);
   }
 
   Future<void> remove(String replyId) async {
@@ -397,4 +490,26 @@ final parentResourcesProvider =
     FutureProvider<List<ParentResource>>((ref) {
   ref.watch(currentUserIdProvider);
   return ref.watch(communityRepositoryProvider).fetchParentResources();
+});
+
+class ResourceFilterNotifier extends Notifier<ResourceFilter> {
+  @override
+  ResourceFilter build() {
+    ref.watch(currentUserIdProvider);
+    return const ResourceFilter();
+  }
+
+  void toggleTag(String tagId) => state = state.toggleTag(tagId);
+  void setText(String text) => state = state.withText(text);
+  void clear() => state = const ResourceFilter();
+}
+
+final resourceFilterProvider =
+    NotifierProvider<ResourceFilterNotifier, ResourceFilter>(
+        ResourceFilterNotifier.new);
+
+final filteredParentResourcesProvider =
+    Provider<AsyncValue<List<ParentResource>>>((ref) {
+  final filter = ref.watch(resourceFilterProvider);
+  return ref.watch(parentResourcesProvider).whenData(filter.apply);
 });

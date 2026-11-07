@@ -10,8 +10,10 @@ import '../domain/community_membership.dart';
 import '../domain/community_news.dart';
 import '../domain/community_repository.dart';
 import '../domain/discussion_image.dart';
+import '../domain/discussion_query.dart';
 import '../domain/parent_resource.dart';
 import '../domain/region.dart';
+import '../domain/topic_tag.dart';
 
 class SupabaseCommunityRepository implements CommunityRepository {
   SupabaseCommunityRepository(this._client);
@@ -263,19 +265,38 @@ class SupabaseCommunityRepository implements CommunityRepository {
     }
   }
 
+  // ── Topic tags ──────────────────────────────────────────────────────────
+
+  @override
+  Future<List<TopicTag>> fetchTopicTags() async {
+    try {
+      final rows = await _client
+          .from('topic_tags')
+          .select()
+          .eq('is_active', true)
+          .order('sort_order');
+      return rows.map(TopicTag.fromJson).toList();
+    } catch (e) {
+      throw mapError(e);
+    }
+  }
+
   // ── Discussions ─────────────────────────────────────────────────────────
 
   @override
-  Future<List<CommunityDiscussion>> fetchDiscussions(
+  Future<List<CommunityDiscussion>> searchDiscussions(
     String communityId,
+    DiscussionQuery query,
   ) async {
     try {
-      final rows = await _client
-          .from('community_discussions')
-          .select('*, author:profiles!author_id(first_name, last_name)')
-          .eq('community_id', communityId)
-          .order('created_at', ascending: false);
-      return rows.map(CommunityDiscussion.fromJson).toList();
+      final rows = await _client.rpc<List<dynamic>>(
+        'search_community_discussions',
+        params: query.toRpcParams(communityId),
+      );
+      return rows
+          .cast<Map<String, dynamic>>()
+          .map(CommunityDiscussion.fromJson)
+          .toList();
     } catch (e) {
       throw mapError(e);
     }
@@ -313,6 +334,7 @@ class SupabaseCommunityRepository implements CommunityRepository {
     required String title,
     required String body,
     List<String> imageUrls = const [],
+    List<String> tagIds = const [],
   }) async {
     try {
       final row = await _client
@@ -326,7 +348,25 @@ class SupabaseCommunityRepository implements CommunityRepository {
           ))
           .select()
           .single();
-      return CommunityDiscussion.fromJson(row);
+      final created = CommunityDiscussion.fromJson(row);
+      if (tagIds.isEmpty) return created;
+      await setDiscussionTags(discussionId: created.id, tagIds: tagIds);
+      return created.copyWith(tagIds: tagIds);
+    } catch (e) {
+      throw mapError(e);
+    }
+  }
+
+  @override
+  Future<void> setDiscussionTags({
+    required String discussionId,
+    required List<String> tagIds,
+  }) async {
+    try {
+      await _client.rpc<void>('set_discussion_tags', params: {
+        'p_discussion_id': discussionId,
+        'p_tag_ids': tagIds,
+      });
     } catch (e) {
       throw mapError(e);
     }
@@ -504,7 +544,7 @@ class SupabaseCommunityRepository implements CommunityRepository {
     try {
       final rows = await _client
           .from('parent_resources')
-          .select()
+          .select('*, tags:parent_resource_tags(tag_id)')
           .order('sort_order');
       return rows.map(ParentResource.fromJson).toList();
     } catch (e) {

@@ -8,6 +8,7 @@ import '../../auth/presentation/auth_form_fields.dart';
 import '../application/community_providers.dart';
 import '../domain/discussion_image.dart';
 import 'discussion_images.dart';
+import 'topic_tag_widgets.dart';
 
 class CommunityDiscussionEditorPage extends ConsumerStatefulWidget {
   const CommunityDiscussionEditorPage({super.key});
@@ -24,6 +25,7 @@ class _EditorState extends ConsumerState<CommunityDiscussionEditorPage> {
   String? _error;
 
   final _images = <PendingImage>[];
+  var _tagIds = <String>{};
 
   int get _remaining => DiscussionImages.maxPerEntry - _images.length;
 
@@ -54,6 +56,7 @@ class _EditorState extends ConsumerState<CommunityDiscussionEditorPage> {
             title: _title.text,
             body: _body.text,
             images: _images,
+            tagIds: _tagIds.toList(),
           );
       if (mounted) {
         showAppSnack(context, 'Discussion started.');
@@ -120,6 +123,12 @@ class _EditorState extends ConsumerState<CommunityDiscussionEditorPage> {
             ),
             validator: (v) =>
                 (v?.trim().isEmpty ?? true) ? 'Content is required.' : null,
+          ),
+          const SizedBox(height: AppTheme.space4),
+          TagPicker(
+            selected: _tagIds,
+            enabled: !_saving,
+            onChanged: (value) => setState(() => _tagIds = value),
           ),
           const SizedBox(height: AppTheme.space4),
           if (_images.isNotEmpty) ...[

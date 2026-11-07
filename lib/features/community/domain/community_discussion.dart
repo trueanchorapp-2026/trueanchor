@@ -1,4 +1,5 @@
 import 'discussion_image.dart';
+import 'topic_tag.dart';
 
 class CommunityDiscussion {
   const CommunityDiscussion({
@@ -11,7 +12,9 @@ class CommunityDiscussion {
     required this.updatedAt,
     this.authorName,
     this.replyCount,
+    this.lastActivityAt,
     this.imageUrls = const [],
+    this.tagIds = const [],
   });
 
   factory CommunityDiscussion.fromJson(Map<String, dynamic> json) =>
@@ -21,9 +24,18 @@ class CommunityDiscussion {
         authorId: json['author_id'] as String,
         title: json['title'] as String,
         body: json['body'] as String,
-        authorName: _authorNameFrom(json['author']),
+        // The search RPC returns the author's name flat, not embedded.
+        authorName: _authorNameFrom(json['author'] ??
+            {
+              'first_name': json['author_first_name'],
+              'last_name': json['author_last_name'],
+            }),
         replyCount: json['reply_count'] as int?,
+        lastActivityAt:
+            DateTime.tryParse(json['last_activity_at'] as String? ?? '')
+                ?.toLocal(),
         imageUrls: DiscussionImages.urlsFromJson(json['image_urls']),
+        tagIds: TopicTag.idsFromJson(json['tag_ids'] ?? json['tags']),
         createdAt: DateTime.tryParse(json['created_at'] as String? ?? '')
                 ?.toLocal() ??
             DateTime.now(),
@@ -39,11 +51,33 @@ class CommunityDiscussion {
   final String body;
   final String? authorName;
   final int? replyCount;
+  final DateTime? lastActivityAt;
   final List<String> imageUrls;
+  final List<String> tagIds;
   final DateTime createdAt;
   final DateTime updatedAt;
 
   bool isAuthoredBy(String userId) => authorId == userId;
+
+  CommunityDiscussion copyWith({
+    List<String>? tagIds,
+    int? replyCount,
+    DateTime? lastActivityAt,
+  }) =>
+      CommunityDiscussion(
+        id: id,
+        communityId: communityId,
+        authorId: authorId,
+        title: title,
+        body: body,
+        createdAt: createdAt,
+        updatedAt: updatedAt,
+        authorName: authorName,
+        replyCount: replyCount ?? this.replyCount,
+        lastActivityAt: lastActivityAt ?? this.lastActivityAt,
+        imageUrls: imageUrls,
+        tagIds: tagIds ?? this.tagIds,
+      );
 
   static String? _authorNameFrom(Object? embedded) {
     if (embedded is! Map) return null;

@@ -16,5 +16,22 @@ void main() {
     expect(resource.url, 'https://example.org/guide');
     expect(resource.sortOrder, 2);
     expect(resource.createdAt, DateTime.utc(2026, 10, 1, 12));
+    expect(resource.tagIds, isEmpty);
+  });
+
+  test('ParentResource.fromJson reads embedded tags', () {
+    final resource = ParentResource.fromJson({
+      'id': 'r1',
+      'title': 'Guide',
+      'url': 'https://example.org/guide',
+      'sort_order': 0,
+      'created_at': '2026-10-01T12:00:00Z',
+      'tags': [
+        {'tag_id': 't1'},
+        {'tag_id': 't2'},
+      ],
+    });
+
+    expect(resource.tagIds, ['t1', 't2']);
   });
 }

@@ -6,8 +6,10 @@ import 'package:mocktail/mocktail.dart';
 import 'package:trueanchor/core/providers/supabase_providers.dart';
 import 'package:trueanchor/features/community/application/community_providers.dart';
 import 'package:trueanchor/features/community/domain/community_discussion.dart';
+import 'package:trueanchor/features/community/domain/community_membership.dart';
 import 'package:trueanchor/features/community/domain/community_repository.dart';
 import 'package:trueanchor/features/community/domain/discussion_image.dart';
+import 'package:trueanchor/features/community/domain/discussion_query.dart';
 
 class MockCommunityRepository extends Mock implements CommunityRepository {}
 
@@ -24,6 +26,15 @@ CommunityDiscussion _discussion({List<String> imageUrls = const []}) =>
       imageUrls: imageUrls,
       createdAt: DateTime(2026),
       updatedAt: DateTime(2026),
+    );
+
+CommunityMembership _membership() => CommunityMembership(
+      id: 'm1',
+      communityId: 'c1',
+      familyId: 'f1',
+      joinedBy: 'u1',
+      isAdmin: false,
+      joinedAt: DateTime(2026),
     );
 
 DiscussionReply _reply({List<String> imageUrls = const []}) => DiscussionReply(
@@ -55,6 +66,7 @@ void main() {
           title: any(named: 'title'),
           body: any(named: 'body'),
           imageUrls: any(named: 'imageUrls'),
+          tagIds: any(named: 'tagIds'),
         )).thenAnswer(
       (invocation) async => _discussion(
         imageUrls: invocation.namedArguments[#imageUrls] as List<String>,
@@ -166,7 +178,113 @@ void main() {
             title: any(named: 'title'),
             body: any(named: 'body'),
             imageUrls: any(named: 'imageUrls'),
+            tagIds: any(named: 'tagIds'),
           ));
+    });
+  });
+
+  group('tags and query', () {
+    setUp(() {
+      registerFallbackValue(const DiscussionQuery());
+      when(() => repository.fetchMyMembership())
+          .thenAnswer((_) async => _membership());
+      when(() => repository.searchDiscussions(any(), any()))
+          .thenAnswer((_) async => [_discussion()]);
+      when(() => repository.setDiscussionTags(
+            discussionId: any(named: 'discussionId'),
+            tagIds: any(named: 'tagIds'),
+          )).thenAnswer((_) async {});
+    });
+
+    test('passes chosen tags through to createDiscussion', () async {
+      final c = container();
+      await c.read(communityDiscussionListProvider.future);
+
+      await c.read(communityDiscussionListProvider.notifier).add(
+            communityId: 'c1',
+            title: 'Title',
+            body: 'Body',
+            tagIds: ['t1', 't2'],
+          );
+
+      verify(() => repository.createDiscussion(
+            communityId: 'c1',
+            title: 'Title',
+            body: 'Body',
+            imageUrls: [],
+            tagIds: ['t1', 't2'],
+          )).called(1);
+    });
+
+    test('rejects more than three tags before creating anything', () async {
+      final c = container();
+      await c.read(communityDiscussionListProvider.future);
+
+      await expectLater(
+        c.read(communityDiscussionListProvider.notifier).add(
+              communityId: 'c1',
+              title: 'Title',
+              body: 'Body',
+              tagIds: ['t1', 't2', 't3', 't4'],
+            ),
+        throwsArgumentError,
+      );
+      verifyNever(() => repository.createDiscussion(
+            communityId: any(named: 'communityId'),
+            title: any(named: 'title'),
+            body: any(named: 'body'),
+            imageUrls: any(named: 'imageUrls'),
+            tagIds: any(named: 'tagIds'),
+          ));
+    });
+
+    test('changing the query re-runs the search with it', () async {
+      final c = container();
+      await c.read(communityDiscussionListProvider.future);
+
+      c.read(discussionQueryProvider.notifier)
+        ..toggleTag('t1')
+        ..setSort(DiscussionSort.mostReplies);
+      await c.read(communityDiscussionListProvider.future);
+
+      verify(() => repository.searchDiscussions(
+            'c1',
+            const DiscussionQuery(
+              tagIds: {'t1'},
+              sort: DiscussionSort.mostReplies,
+            ),
+          )).called(1);
+    });
+
+    test('updateTags saves and updates the post in place', () async {
+      final c = container();
+      await c.read(communityDiscussionListProvider.future);
+
+      await c
+          .read(communityDiscussionListProvider.notifier)
+          .updateTags(discussionId: 'd1', tagIds: ['t3']);
+
+      verify(() => repository.setDiscussionTags(
+            discussionId: 'd1',
+            tagIds: ['t3'],
+          )).called(1);
+      expect(
+        c.read(communityDiscussionListProvider).value?.single.tagIds,
+        ['t3'],
+      );
+    });
+
+    test('a new reply bumps the reply count in the list', () async {
+      final c = container();
+      await c.read(communityDiscussionListProvider.future);
+      await c.read(discussionRepliesProvider('d1').future);
+
+      await c.read(discussionRepliesProvider('d1').notifier).add(body: 'Hi');
+
+      expect(
+        c.read(communityDiscussionListProvider).value?.single.replyCount,
+        1,
+      );
     });
   });
 
