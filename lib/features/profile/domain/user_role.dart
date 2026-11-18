@@ -68,9 +68,10 @@ enum UserRole {
   bool get canViewEngagementDashboard =>
       this == UserRole.youthPastor || this == UserRole.appAdmin;
 
-  /// Who may log a relationship. Mirrors `relationships_insert_own` — outward
-  /// growth is the youth's own work, so only they author it.
-  bool get canTrackRelationships => this == UserRole.youth;
+  /// Who may log a relationship. Mirrors `relationships_insert_own` — youth
+  /// and parents both invest in outward relationships.
+  bool get canTrackRelationships =>
+      this == UserRole.youth || this == UserRole.parent;
 
   /// Who may open Love in Action at all. Mirrors the three select policies on
   /// `relationships`: the owning youth, a parent in their household, and their

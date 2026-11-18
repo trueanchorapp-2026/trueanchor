@@ -46,7 +46,7 @@ class ChurchPage extends ConsumerWidget {
             }
 
             return ListView(
-              padding: const EdgeInsets.all(AppTheme.space4),
+              padding: feedInsets(context),
               children: [
                 _ChurchHeader(overview: overview),
                 const SizedBox(height: AppTheme.space5),

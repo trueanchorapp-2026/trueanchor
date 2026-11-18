@@ -50,7 +50,7 @@ class FamilyPage extends ConsumerWidget {
           }
 
           return ListView(
-            padding: const EdgeInsets.all(AppTheme.space4),
+            padding: feedInsets(context),
             children: [
               Text(family.name, style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: AppTheme.space4),

@@ -45,7 +45,7 @@ class EngagementDashboardPage extends ConsumerWidget {
           // The roster arrives most-concerning-first, so the same list read
           // straight through is the full-roster section.
           return ListView(
-            padding: const EdgeInsets.all(AppTheme.space4),
+            padding: feedInsets(context),
             children: [
               _SummaryRow(roster: roster, needingAttention: needsAttention),
               const SizedBox(height: AppTheme.space5),

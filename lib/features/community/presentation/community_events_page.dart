@@ -7,7 +7,6 @@ import '../../../core/providers/supabase_providers.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_widgets.dart';
-import '../../profile/application/profile_providers.dart';
 import '../application/community_providers.dart';
 import '../domain/community_event.dart';
 import '../domain/community_membership.dart';
@@ -46,7 +45,7 @@ class _EventList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final eventsState = ref.watch(communityEventListProvider);
-    final canCreate = _canCreate(ref, membership);
+    final canCreate = ref.watch(isCommunityAdminProvider);
 
     return Scaffold(
       floatingActionButton: canCreate
@@ -83,12 +82,7 @@ class _EventList extends ConsumerWidget {
 
             final now = DateTime.now();
             return ListView.builder(
-              padding: const EdgeInsets.fromLTRB(
-                AppTheme.space4,
-                AppTheme.space4,
-                AppTheme.space4,
-                96,
-              ),
+              padding: feedInsets(context, bottom: AppTheme.fabClearance),
               itemCount: events.length,
               itemBuilder: (context, index) =>
                   _EventCard(event: events[index], isPast: events[index].isPast(now)),
@@ -97,12 +91,6 @@ class _EventList extends ConsumerWidget {
         ),
       ),
     );
-  }
-
-  bool _canCreate(WidgetRef ref, CommunityMembership membership) {
-    final profile = ref.watch(currentProfileProvider).value;
-    if (profile == null) return false;
-    return membership.isAdmin || profile.role.canManageRegions;
   }
 }
 

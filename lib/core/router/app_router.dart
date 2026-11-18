@@ -13,8 +13,10 @@ import '../../features/community/presentation/community_discussions_page.dart';
 import '../../features/community/presentation/community_event_editor_page.dart';
 import '../../features/community/presentation/community_events_page.dart';
 import '../../features/community/presentation/community_manage_page.dart';
-import '../../features/community/presentation/community_news_editor_page.dart';
+import '../../features/community/domain/published_post.dart';
 import '../../features/community/presentation/community_news_page.dart';
+import '../../features/community/presentation/published_post_detail_page.dart';
+import '../../features/community/presentation/published_post_editor_page.dart';
 import '../../features/community/presentation/community_resources_page.dart';
 import '../../features/community/presentation/community_shell.dart';
 import '../../features/devotionals/presentation/devotional_history_page.dart';
@@ -88,8 +90,10 @@ abstract final class Routes {
   static const communityManage = '/community/manage';
 
   // Community drill-down routes
-  static const communityNewsNew = '/community-news/new';
-  static const communityNewsEdit = '/community-news/:id/edit';
+  // News and Parent Hub posts; :kind is a [PublishedKind] name.
+  static const communityPostNew = '/community-post/:kind/new';
+  static const communityPostDetail = '/community-post/:kind/:id';
+  static const communityPostEdit = '/community-post/:kind/:id/edit';
   static const communityDiscussionNew = '/community-discussion/new';
   static const communityDiscussionDetail = '/community-discussion/:id';
   static const communityEventNew = '/community-event/new';
@@ -151,8 +155,14 @@ abstract final class Routes {
   static String groupManageFor(String groupId) =>
       '/messages/group/$groupId/manage';
 
-  static String communityNewsEditFor(String newsId) =>
-      '/community-news/$newsId/edit';
+  static String communityPostNewFor(PublishedKind kind) =>
+      '/community-post/${kind.name}/new';
+
+  static String communityPostDetailFor(PublishedKind kind, String id) =>
+      '/community-post/${kind.name}/$id';
+
+  static String communityPostEditFor(PublishedKind kind, String id) =>
+      '/community-post/${kind.name}/$id/edit';
 
   static String communityDiscussionDetailFor(String discussionId) =>
       '/community-discussion/$discussionId';
@@ -379,14 +389,25 @@ final routerProvider = Provider<GoRouter>((ref) {
             relationshipId: state.pathParameters['id']!),
       ),
       // Community drill-down routes (outside the shell).
+      // `new` is listed before `:id` so it isn't taken for a post id.
       GoRoute(
-        path: Routes.communityNewsNew,
-        builder: (context, state) => const CommunityNewsEditorPage(),
+        path: Routes.communityPostNew,
+        builder: (context, state) =>
+            PublishedPostEditorPage(kind: _postKind(state)),
       ),
       GoRoute(
-        path: Routes.communityNewsEdit,
-        builder: (context, state) =>
-            CommunityNewsEditorPage(newsId: state.pathParameters['id']),
+        path: Routes.communityPostEdit,
+        builder: (context, state) => PublishedPostEditorPage(
+          kind: _postKind(state),
+          postId: state.pathParameters['id'],
+        ),
+      ),
+      GoRoute(
+        path: Routes.communityPostDetail,
+        builder: (context, state) => PublishedPostDetailPage(
+          kind: _postKind(state),
+          postId: state.pathParameters['id']!,
+        ),
       ),
       GoRoute(
         path: Routes.communityDiscussionNew,
@@ -520,3 +541,9 @@ String _homeFor(UserRole role) => switch (role) {
       _ when role.isRegionalAdmin => Routes.communityManage,
       _ => Routes.today,
     };
+
+/// The post kind in a `/community-post/:kind/...` route; unknown values fall
+/// back to news rather than crashing on a hand-edited URL.
+PublishedKind _postKind(GoRouterState state) =>
+    PublishedKind.values.asNameMap()[state.pathParameters['kind']] ??
+    PublishedKind.news;

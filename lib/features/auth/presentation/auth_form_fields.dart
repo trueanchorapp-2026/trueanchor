@@ -168,7 +168,9 @@ class ButtonSpinner extends StatelessWidget {
     return const SizedBox(
       height: 20,
       width: 20,
-      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+      // No colour: the button is disabled while this shows, so its fill is a
+      // pale grey and white would vanish. The default primary stays visible.
+      child: CircularProgressIndicator(strokeWidth: 2),
     );
   }
 }

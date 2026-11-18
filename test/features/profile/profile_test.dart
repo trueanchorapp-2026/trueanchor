@@ -207,5 +207,14 @@ void main() {
       expect(UserRole.parent.canViewEngagementDashboard, isFalse);
       expect(UserRole.youth.canViewEngagementDashboard, isFalse);
     });
+
+    test('youth and parents author Love in Action; staff do not', () {
+      // Mirrors relationships_insert_own as widened in 0027.
+      expect(UserRole.youth.canTrackRelationships, isTrue);
+      expect(UserRole.parent.canTrackRelationships, isTrue);
+      expect(UserRole.youthPastor.canTrackRelationships, isFalse);
+      expect(UserRole.churchAdmin.canTrackRelationships, isFalse);
+      expect(UserRole.appAdmin.canTrackRelationships, isFalse);
+    });
   });
 }

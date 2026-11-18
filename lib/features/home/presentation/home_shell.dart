@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/router/app_router.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/app_widgets.dart';
 import '../../messaging/application/messaging_providers.dart'
     show totalUnreadCountProvider;
 import '../../profile/application/profile_providers.dart';
@@ -61,13 +63,6 @@ const _church = _Destination(
   icon: Icons.church_outlined,
   selectedIcon: Icons.church,
 );
-const _events = _Destination(
-  route: '/discipleship/events',
-  label: 'Events',
-  icon: Icons.event_outlined,
-  selectedIcon: Icons.event,
-);
-
 /// Navigation frame for signed-in users. Parents and youth see the 4-tab
 /// layout (Home, Discipleship, Community, Profile). Church staff keep their
 /// existing navigation for now.
@@ -86,7 +81,6 @@ class HomeShell extends ConsumerWidget {
         if (role.canViewEngagementDashboard) _dashboard,
         _discipleship,
         _church,
-        _events,
         _profile,
       ];
     }
@@ -132,7 +126,9 @@ class HomeShell extends ConsumerWidget {
       if (target != location) context.go(target);
     }
 
-    final title = destinations[index].label;
+    var title = destinations[index].label;
+    if (location.startsWith('/discipleship')) title = 'Daily Discipleship';
+    if (location.startsWith('/home')) title = 'TrueAnchor';
 
     final isWide = MediaQuery.sizeOf(context).width >= 760;
 
@@ -144,6 +140,7 @@ class HomeShell extends ConsumerWidget {
               selectedIndex: index,
               onDestinationSelected: onSelected,
               labelType: NavigationRailLabelType.all,
+              leading: const _BrandMark(),
               destinations: [
                 for (final destination in destinations)
                   NavigationRailDestination(
@@ -153,11 +150,19 @@ class HomeShell extends ConsumerWidget {
                   ),
               ],
             ),
-            const VerticalDivider(width: 1),
+            VerticalDivider(
+              width: 1,
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
             Expanded(
               child: Scaffold(
                 appBar: AppBar(title: Text(title)),
-                body: child,
+                body: LayoutBuilder(
+                  builder: (context, constraints) => ContentWidthScope(
+                    width: constraints.maxWidth,
+                    child: child,
+                  ),
+                ),
               ),
             ),
           ],
@@ -179,6 +184,27 @@ class HomeShell extends ConsumerWidget {
               label: destination.label,
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// The anchor mark at the top of the navigation rail on wide screens.
+class _BrandMark extends StatelessWidget {
+  const _BrandMark();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppTheme.space3),
+      child: Semantics(
+        label: 'TrueAnchor',
+        child: CircleAvatar(
+          radius: 22,
+          backgroundColor: scheme.primary,
+          child: Icon(Icons.anchor, color: scheme.onPrimary),
+        ),
       ),
     );
   }

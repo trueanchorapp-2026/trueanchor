@@ -7,20 +7,23 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../application/community_providers.dart';
 import '../domain/community_discussion.dart';
+import '../domain/discussion_image.dart';
+import 'discussion_images.dart';
+import 'topic_tag_widgets.dart';
+import 'vote_widgets.dart';
 
 class CommunityDiscussionDetailPage extends ConsumerStatefulWidget {
-  const CommunityDiscussionDetailPage(
-      {required this.discussionId, super.key});
+  const CommunityDiscussionDetailPage({required this.discussionId, super.key});
 
   final String discussionId;
 
   @override
-  ConsumerState<CommunityDiscussionDetailPage> createState() =>
-      _DetailState();
+  ConsumerState<CommunityDiscussionDetailPage> createState() => _DetailState();
 }
 
 class _DetailState extends ConsumerState<CommunityDiscussionDetailPage> {
   final _replyController = TextEditingController();
+  final _replyImages = <PendingImage>[];
   bool _sending = false;
 
   @override
@@ -29,16 +32,33 @@ class _DetailState extends ConsumerState<CommunityDiscussionDetailPage> {
     super.dispose();
   }
 
+  Future<void> _pickReplyImages() async {
+    final picked = await pickDiscussionImages(
+      DiscussionImages.maxPerEntry - _replyImages.length,
+    );
+    if (picked.isNotEmpty && mounted) {
+      setState(() => _replyImages.addAll(picked));
+    }
+  }
+
   Future<void> _sendReply() async {
     final text = _replyController.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty) {
+      // The reply table requires text; say so rather than ignore the tap
+      // when only images are attached.
+      if (_replyImages.isNotEmpty) {
+        showAppSnack(context, 'Add a message to go with your images.');
+      }
+      return;
+    }
 
     setState(() => _sending = true);
     try {
       await ref
           .read(discussionRepliesProvider(widget.discussionId).notifier)
-          .add(body: text);
+          .add(body: text, images: List.of(_replyImages));
       _replyController.clear();
+      if (mounted) setState(_replyImages.clear);
     } catch (e) {
       if (mounted) showAppSnack(context, '$e', isError: true);
     } finally {
@@ -48,12 +68,17 @@ class _DetailState extends ConsumerState<CommunityDiscussionDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final discussions = ref.watch(communityDiscussionListProvider);
     final replies = ref.watch(discussionRepliesProvider(widget.discussionId));
 
-    final discussion = discussions.value
-        ?.where((d) => d.id == widget.discussionId)
-        .firstOrNull;
+    // Prefer the list entry (so optimistic votes show at once); fall back to
+    // a fetch when the post isn't in the current, possibly filtered, list —
+    // e.g. when opened from a news post's related discussions.
+    final discussion = ref
+            .watch(communityDiscussionListProvider)
+            .value
+            ?.where((d) => d.id == widget.discussionId)
+            .firstOrNull ??
+        ref.watch(discussionByIdProvider(widget.discussionId)).value;
 
     return Scaffold(
       appBar: AppBar(title: Text(discussion?.title ?? 'Discussion')),
@@ -62,8 +87,7 @@ class _DetailState extends ConsumerState<CommunityDiscussionDetailPage> {
           Expanded(
             child: RefreshIndicator(
               onRefresh: () => ref
-                  .read(
-                      discussionRepliesProvider(widget.discussionId).notifier)
+                  .read(discussionRepliesProvider(widget.discussionId).notifier)
                   .refresh(),
               child: CustomScrollView(
                 slivers: [
@@ -72,9 +96,11 @@ class _DetailState extends ConsumerState<CommunityDiscussionDetailPage> {
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: AppTheme.space4),
+                        horizontal: AppTheme.space4,
+                      ),
                       child: Divider(
-                          color: Theme.of(context).colorScheme.outlineVariant),
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                      ),
                     ),
                   ),
                   replies.when(
@@ -93,13 +119,11 @@ class _DetailState extends ConsumerState<CommunityDiscussionDetailPage> {
                           child: Center(
                             child: Text(
                               'No replies yet. Be the first!',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyLarge
+                              style: Theme.of(context).textTheme.bodyLarge
                                   ?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
                                   ),
                             ),
                           ),
@@ -122,6 +146,12 @@ class _DetailState extends ConsumerState<CommunityDiscussionDetailPage> {
             controller: _replyController,
             sending: _sending,
             onSend: _sendReply,
+            images: _replyImages,
+            onAddImages: _replyImages.length < DiscussionImages.maxPerEntry
+                ? _pickReplyImages
+                : null,
+            onRemoveImage: (index) =>
+                setState(() => _replyImages.removeAt(index)),
           ),
         ],
       ),
@@ -129,13 +159,13 @@ class _DetailState extends ConsumerState<CommunityDiscussionDetailPage> {
   }
 }
 
-class _PostHeader extends StatelessWidget {
+class _PostHeader extends ConsumerWidget {
   const _PostHeader({required this.post});
 
   final CommunityDiscussion post;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.all(AppTheme.space4),
@@ -163,8 +193,23 @@ class _PostHeader extends StatelessWidget {
               ),
             ],
           ),
+          if (post.tagIds.isNotEmpty) ...[
+            const SizedBox(height: AppTheme.space2),
+            TagChipRow(tagIds: post.tagIds),
+          ],
+          if (post.imageUrls.isNotEmpty) ...[
+            const SizedBox(height: AppTheme.space3),
+            DiscussionImageGallery(urls: post.imageUrls),
+          ],
           const SizedBox(height: AppTheme.space4),
           Text(post.body, style: theme.textTheme.bodyLarge),
+          const SizedBox(height: AppTheme.space3),
+          VoteBar(
+            votes: post.votes,
+            onVote: (direction) => ref
+                .read(communityDiscussionListProvider.notifier)
+                .vote(post, direction),
+          ),
         ],
       ),
     );
@@ -235,6 +280,17 @@ class _ReplyTile extends ConsumerWidget {
                 ),
                 const SizedBox(height: AppTheme.space1),
                 Text(reply.body, style: theme.textTheme.bodyMedium),
+                if (reply.imageUrls.isNotEmpty) ...[
+                  const SizedBox(height: AppTheme.space2),
+                  DiscussionImageGallery.thumbnails(urls: reply.imageUrls),
+                ],
+                HelpfulButton(
+                  count: reply.helpfulCount,
+                  marked: reply.markedHelpfulByMe,
+                  onToggle: () => ref
+                      .read(discussionRepliesProvider(discussionId).notifier)
+                      .toggleHelpful(reply.id),
+                ),
               ],
             ),
           ),
@@ -262,11 +318,19 @@ class _ComposerBar extends StatelessWidget {
     required this.controller,
     required this.sending,
     required this.onSend,
+    required this.images,
+    required this.onAddImages,
+    required this.onRemoveImage,
   });
 
   final TextEditingController controller;
   final bool sending;
   final VoidCallback onSend;
+  final List<PendingImage> images;
+
+  /// Null once the image limit is reached.
+  final VoidCallback? onAddImages;
+  final ValueChanged<int> onRemoveImage;
 
   @override
   Widget build(BuildContext context) {
@@ -286,39 +350,63 @@ class _ComposerBar extends StatelessWidget {
       ),
       child: SafeArea(
         top: false,
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: TextField(
-                controller: controller,
+            if (images.isNotEmpty) ...[
+              PendingImageStrip(
+                images: images,
                 enabled: !sending,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(
-                  hintText: 'Write a reply...',
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: AppTheme.space3,
-                    vertical: AppTheme.space2,
-                  ),
-                ),
-                minLines: 1,
-                maxLines: 4,
+                size: 64,
+                onRemove: onRemoveImage,
               ),
-            ),
-            const SizedBox(width: AppTheme.space2),
-            IconButton.filled(
-              onPressed: sending ? null : onSend,
-              icon: sending
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.send),
-            ),
+              const SizedBox(height: AppTheme.space2),
+            ],
+            _buildInputRow(),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildInputRow() {
+    return Row(
+      children: [
+        IconButton(
+          tooltip: 'Attach images',
+          onPressed: sending ? null : onAddImages,
+          icon: const Icon(Icons.add_photo_alternate_outlined),
+        ),
+        Expanded(
+          child: TextField(
+            controller: controller,
+            enabled: !sending,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: const InputDecoration(
+              hintText: 'Write a reply...',
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: AppTheme.space3,
+                vertical: AppTheme.space2,
+              ),
+            ),
+            minLines: 1,
+            maxLines: 4,
+          ),
+        ),
+        const SizedBox(width: AppTheme.space2),
+        IconButton.filled(
+          onPressed: sending ? null : onSend,
+          icon: sending
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.send),
+        ),
+      ],
     );
   }
 }

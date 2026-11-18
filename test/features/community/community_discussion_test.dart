@@ -1,0 +1,145 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:trueanchor/features/community/domain/community_discussion.dart';
+
+Map<String, dynamic> _row({Object? imageUrls}) => {
+      'id': 'd1',
+      'community_id': 'c1',
+      'discussion_id': 'd1',
+      'author_id': 'u1',
+      'title': 'School board meeting',
+      'body': 'Who is going Tuesday?',
+      'created_at': '2026-10-01T12:00:00Z',
+      'updated_at': '2026-10-01T12:00:00Z',
+      'image_urls': ?imageUrls,
+    };
+
+void main() {
+  group('CommunityDiscussion images', () {
+    test('reads image_urls in order, and empty when absent', () {
+      expect(
+        CommunityDiscussion.fromJson(
+          _row(imageUrls: ['https://x/a', 'https://x/b']),
+        ).imageUrls,
+        ['https://x/a', 'https://x/b'],
+      );
+      expect(CommunityDiscussion.fromJson(_row()).imageUrls, isEmpty);
+    });
+
+    test('insert payload carries image_urls', () {
+      expect(
+        CommunityDiscussion.toInsertJson(
+          communityId: 'c1',
+          authorId: 'u1',
+          title: 'Title',
+          body: 'Body',
+          imageUrls: ['https://x/a'],
+        )['image_urls'],
+        ['https://x/a'],
+      );
+    });
+  });
+
+  group('CommunityDiscussion search fields', () {
+    test('reads the search RPC row: tags, counts, flat author name', () {
+      final d = CommunityDiscussion.fromJson({
+        ..._row(),
+        'tag_ids': ['t1', 't2'],
+        'reply_count': 4,
+        'last_activity_at': '2026-10-02T08:00:00Z',
+        'author_first_name': 'Ana',
+        'author_last_name': 'Diaz',
+      });
+
+      expect(d.tagIds, ['t1', 't2']);
+      expect(d.replyCount, 4);
+      expect(d.lastActivityAt, DateTime.utc(2026, 10, 2, 8).toLocal());
+      expect(d.authorName, 'Ana Diaz');
+    });
+
+    test('defaults when the search fields are absent', () {
+      final d = CommunityDiscussion.fromJson(_row());
+      expect(d.tagIds, isEmpty);
+      expect(d.lastActivityAt, isNull);
+      expect(d.authorName, isNull);
+    });
+
+    test('still reads an embedded author', () {
+      final d = CommunityDiscussion.fromJson({
+        ..._row(),
+        'author': {'first_name': 'Sam', 'last_name': null},
+      });
+      expect(d.authorName, 'Sam');
+    });
+
+    test('copyWith replaces tags and counts only', () {
+      final d = CommunityDiscussion.fromJson(_row());
+      final updated = d.copyWith(tagIds: ['t9'], replyCount: 2);
+      expect(updated.tagIds, ['t9']);
+      expect(updated.replyCount, 2);
+      expect(updated.title, d.title);
+    });
+  });
+
+  group('DiscussionReply images', () {
+    test('reads image_urls, and empty when absent', () {
+      expect(
+        DiscussionReply.fromJson(_row(imageUrls: ['https://x/a'])).imageUrls,
+        ['https://x/a'],
+      );
+      expect(DiscussionReply.fromJson(_row()).imageUrls, isEmpty);
+    });
+
+    test('insert payload carries image_urls, defaulting to none', () {
+      expect(
+        DiscussionReply.toInsertJson(
+          discussionId: 'd1',
+          authorId: 'u1',
+          body: 'Nice',
+          imageUrls: ['https://x/a'],
+        )['image_urls'],
+        ['https://x/a'],
+      );
+      expect(
+        DiscussionReply.toInsertJson(
+          discussionId: 'd1',
+          authorId: 'u1',
+          body: 'Nice',
+        )['image_urls'],
+        isEmpty,
+      );
+    });
+  });
+
+  group('reply helpful', () {
+    test('reads helpful_count and my own mark from my_votes', () {
+      final marked = DiscussionReply.fromJson({
+        ..._row(),
+        'helpful_count': 4,
+        'my_votes': [
+          {'user_id': 'u1'},
+        ],
+      });
+      expect(marked.helpfulCount, 4);
+      expect(marked.markedHelpfulByMe, isTrue);
+
+      final plain = DiscussionReply.fromJson(_row());
+      expect(plain.helpfulCount, 0);
+      expect(plain.markedHelpfulByMe, isFalse);
+    });
+
+    test('toggledHelpful flips the mark and adjusts the count', () {
+      final reply = DiscussionReply.fromJson({..._row(), 'helpful_count': 2});
+      final on = reply.toggledHelpful();
+      expect((on.helpfulCount, on.markedHelpfulByMe), (3, true));
+      final off = on.toggledHelpful();
+      expect((off.helpfulCount, off.markedHelpfulByMe), (2, false));
+    });
+
+    test('discussion reads votes', () {
+      final d = CommunityDiscussion.fromJson(
+          {..._row(), 'upvotes': 2, 'downvotes': 1, 'my_vote': 1});
+      expect(d.votes.score, 1);
+      expect(d.votes.myVote, 1);
+    });
+  });
+}

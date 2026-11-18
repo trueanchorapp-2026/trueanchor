@@ -14,20 +14,20 @@ import 'package:trueanchor/features/community/presentation/join_community_page.d
 class _FakeCommunityRepository implements CommunityRepository {
   @override
   Future<List<Region>> fetchRegions() async => [
-        Region(id: 'r1', name: 'Broward County', createdAt: DateTime(2026)),
-      ];
+    Region(id: 'r1', name: 'Broward County', createdAt: DateTime(2026)),
+  ];
 
   @override
   Future<List<Community>> fetchCommunities({String? regionId}) async => [
-        Community(
-          id: 'c1',
-          regionId: 'r1',
-          name: 'Coral Springs',
-          city: 'Coral Springs',
-          state: 'FL',
-          createdAt: DateTime(2026),
-        ),
-      ];
+    Community(
+      id: 'c1',
+      regionId: 'r1',
+      name: 'Coral Springs',
+      city: 'Coral Springs',
+      state: 'FL',
+      createdAt: DateTime(2026),
+    ),
+  ];
 
   @override
   dynamic noSuchMethod(Invocation invocation) =>
@@ -40,19 +40,19 @@ void main() {
   // trailing slot resolves to the full tile and then asserts on. Pumping the
   // page under a default theme hides the bug entirely.
   Widget pageUnderTest() => ProviderScope(
-        overrides: [
-          currentUserIdProvider.overrideWithValue('u1'),
-          communityRepositoryProvider
-              .overrideWithValue(_FakeCommunityRepository()),
-        ],
-        child: MaterialApp(
-          theme: AppTheme.light(),
-          home: const Scaffold(body: JoinCommunityPage()),
-        ),
-      );
+    overrides: [
+      currentUserIdProvider.overrideWithValue('u1'),
+      communityRepositoryProvider.overrideWithValue(_FakeCommunityRepository()),
+    ],
+    child: MaterialApp(
+      theme: AppTheme.light(),
+      home: const Scaffold(body: JoinCommunityPage()),
+    ),
+  );
 
-  testWidgets('selecting a region lists that region\'s communities',
-      (tester) async {
+  testWidgets('selecting a region lists that region\'s communities', (
+    tester,
+  ) async {
     await tester.pumpWidget(pageUnderTest());
     await tester.pumpAndSettle();
 
@@ -66,8 +66,9 @@ void main() {
     expect(find.text('Join'), findsOneWidget);
   });
 
-  testWidgets('the Join button sizes to its label, not the tile',
-      (tester) async {
+  testWidgets('the Join button sizes to its label, not the tile', (
+    tester,
+  ) async {
     await tester.pumpWidget(pageUnderTest());
     await tester.pumpAndSettle();
 

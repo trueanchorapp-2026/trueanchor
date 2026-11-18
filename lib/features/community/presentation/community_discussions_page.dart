@@ -9,6 +9,10 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../application/community_providers.dart';
 import '../domain/community_discussion.dart';
+import '../domain/feed_query.dart';
+import 'discussion_images.dart';
+import 'topic_tag_widgets.dart';
+import 'vote_widgets.dart';
 
 class CommunityDiscussionsPage extends ConsumerWidget {
   const CommunityDiscussionsPage({super.key});
@@ -44,6 +48,9 @@ class _DiscussionList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(communityDiscussionListProvider);
+    final query = ref.watch(discussionQueryProvider);
+    final queryNotifier = ref.read(discussionQueryProvider.notifier);
+    final insets = feedInsets(context);
 
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
@@ -51,45 +58,79 @@ class _DiscussionList extends ConsumerWidget {
         icon: const Icon(Icons.add),
         label: const Text('New discussion'),
       ),
-      body: RefreshIndicator(
-        onRefresh: () =>
-            ref.read(communityDiscussionListProvider.notifier).refresh(),
-        child: AsyncValueView<List<CommunityDiscussion>>(
-          value: state,
-          onRetry: () =>
-              ref.read(communityDiscussionListProvider.notifier).refresh(),
-          builder: (discussions) {
-            if (discussions.isEmpty) {
-              return LayoutBuilder(
-                builder: (context, constraints) => SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  child: ConstrainedBox(
-                    constraints:
-                        BoxConstraints(minHeight: constraints.maxHeight),
-                    child: const EmptyState(
-                      icon: Icons.forum_outlined,
-                      title: 'No discussions yet',
-                      message: 'Start a discussion about something '
-                          'happening in your community.',
-                    ),
-                  ),
-                ),
-              );
-            }
+      body: Column(
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              insets.left,
+              AppTheme.space3,
+              insets.right,
+              0,
+            ),
+            child: TagFilterBar(
+              searchHint: 'Search discussions',
+              selectedTagIds: query.tagIds,
+              initialText: query.text,
+              isFiltered: query.isFiltered,
+              sort: query.sort,
+              allowedSorts: FeedSort.discussionSorts,
+              onToggleTag: queryNotifier.toggleTag,
+              onTextChanged: queryNotifier.setText,
+              onSortChanged: queryNotifier.setSort,
+              onClear: queryNotifier.clear,
+            ),
+          ),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () =>
+                  ref.read(communityDiscussionListProvider.notifier).refresh(),
+              child: AsyncValueView<List<CommunityDiscussion>>(
+                value: state,
+                onRetry: () => ref
+                    .read(communityDiscussionListProvider.notifier)
+                    .refresh(),
+                builder: (discussions) {
+                  if (discussions.isEmpty) {
+                    return LayoutBuilder(
+                      builder: (context, constraints) => SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: ConstrainedBox(
+                          constraints:
+                              BoxConstraints(minHeight: constraints.maxHeight),
+                          child: query.isFiltered
+                              ? EmptyState(
+                                  icon: Icons.search_off,
+                                  title: 'No matching discussions',
+                                  message: 'Try another topic or search.',
+                                  action: OutlinedButton(
+                                    onPressed: queryNotifier.clear,
+                                    child: const Text('Clear filters'),
+                                  ),
+                                )
+                              : const EmptyState(
+                                  icon: Icons.forum_outlined,
+                                  title: 'No discussions yet',
+                                  message: 'Start a discussion about '
+                                      'something happening in your '
+                                      'community.',
+                                ),
+                        ),
+                      ),
+                    );
+                  }
 
-            return ListView.builder(
-              padding: const EdgeInsets.fromLTRB(
-                AppTheme.space4,
-                AppTheme.space4,
-                AppTheme.space4,
-                96,
+                  return ListView.builder(
+                    padding: feedInsets(context, bottom: AppTheme.fabClearance)
+                        .copyWith(top: AppTheme.space2),
+                    itemCount: discussions.length,
+                    itemBuilder: (context, index) =>
+                        _DiscussionCard(discussion: discussions[index]),
+                  );
+                },
               ),
-              itemCount: discussions.length,
-              itemBuilder: (context, index) =>
-                  _DiscussionCard(discussion: discussions[index]),
-            );
-          },
-        ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -106,6 +147,9 @@ class _DiscussionCard extends ConsumerWidget {
     final onMuted = theme.colorScheme.onSurfaceVariant;
     final userId = ref.watch(currentUserIdProvider);
     final isAuthor = userId != null && discussion.isAuthoredBy(userId);
+    final isCommunityAdmin =
+        ref.watch(isCommunityAdminProvider);
+    final replyCount = discussion.replyCount ?? 0;
 
     return Card(
       margin: const EdgeInsets.only(bottom: AppTheme.space3),
@@ -124,18 +168,39 @@ class _DiscussionCard extends ConsumerWidget {
                     child: Text(discussion.title,
                         style: theme.textTheme.titleMedium),
                   ),
-                  if (isAuthor)
+                  if (isAuthor || isCommunityAdmin)
                     PopupMenuButton<String>(
                       onSelected: (action) =>
                           _onAction(context, ref, action),
-                      itemBuilder: (_) => const [
-                        PopupMenuItem(
-                            value: 'delete', child: Text('Delete')),
+                      itemBuilder: (_) => [
+                        const PopupMenuItem(
+                            value: 'tags', child: Text('Edit topics')),
+                        if (isAuthor)
+                          const PopupMenuItem(
+                              value: 'delete', child: Text('Delete')),
                       ],
                     ),
                 ],
               ),
+              if (discussion.tagIds.isNotEmpty) ...[
+                const SizedBox(height: AppTheme.space1),
+                TagChipRow(
+                  tagIds: discussion.tagIds,
+                  onTap: (tagId) {
+                    final query = ref.read(discussionQueryProvider);
+                    if (!query.tagIds.contains(tagId)) {
+                      ref
+                          .read(discussionQueryProvider.notifier)
+                          .toggleTag(tagId);
+                    }
+                  },
+                ),
+              ],
               const SizedBox(height: AppTheme.space2),
+              if (discussion.imageUrls.isNotEmpty) ...[
+                DiscussionImagePreview(urls: discussion.imageUrls),
+                const SizedBox(height: AppTheme.space2),
+              ],
               Text(
                 discussion.body,
                 style: theme.textTheme.bodyMedium,
@@ -145,11 +210,32 @@ class _DiscussionCard extends ConsumerWidget {
               const SizedBox(height: AppTheme.space3),
               Row(
                 children: [
-                  if (discussion.authorName != null)
-                    Text(discussion.authorName!,
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: onMuted)),
-                  const Spacer(),
+                  VoteBar(
+                    votes: discussion.votes,
+                    onVote: (direction) => ref
+                        .read(communityDiscussionListProvider.notifier)
+                        .vote(discussion, direction),
+                  ),
+                  const SizedBox(width: AppTheme.space2),
+                  Expanded(
+                    child: Text(
+                      discussion.authorName ?? '',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style:
+                          theme.textTheme.bodySmall?.copyWith(color: onMuted),
+                    ),
+                  ),
+                  Icon(Icons.chat_bubble_outline, size: 14, color: onMuted),
+                  const SizedBox(width: AppTheme.space1),
+                  Text(
+                    '$replyCount',
+                    semanticsLabel:
+                        '$replyCount ${replyCount == 1 ? 'reply' : 'replies'}',
+                    style:
+                        theme.textTheme.bodySmall?.copyWith(color: onMuted),
+                  ),
+                  const SizedBox(width: AppTheme.space3),
                   Text(
                     DateFormat.yMMMd().format(discussion.createdAt),
                     style:
@@ -169,6 +255,22 @@ class _DiscussionCard extends ConsumerWidget {
     WidgetRef ref,
     String action,
   ) async {
+    if (action == 'tags') {
+      final selected = await showTagPickerSheet(
+        context,
+        initial: discussion.tagIds.toSet(),
+      );
+      if (selected == null || !context.mounted) return;
+      try {
+        await ref
+            .read(communityDiscussionListProvider.notifier)
+            .updateTags(discussionId: discussion.id, tagIds: selected.toList());
+        if (context.mounted) showAppSnack(context, 'Topics updated.');
+      } catch (e) {
+        if (context.mounted) showAppSnack(context, '$e', isError: true);
+      }
+      return;
+    }
     if (action == 'delete') {
       final confirmed = await confirmDestructive(
         context,

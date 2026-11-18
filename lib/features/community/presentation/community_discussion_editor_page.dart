@@ -6,13 +6,15 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../../auth/presentation/auth_form_fields.dart';
 import '../application/community_providers.dart';
+import '../domain/discussion_image.dart';
+import 'discussion_images.dart';
+import 'topic_tag_widgets.dart';
 
 class CommunityDiscussionEditorPage extends ConsumerStatefulWidget {
   const CommunityDiscussionEditorPage({super.key});
 
   @override
-  ConsumerState<CommunityDiscussionEditorPage> createState() =>
-      _EditorState();
+  ConsumerState<CommunityDiscussionEditorPage> createState() => _EditorState();
 }
 
 class _EditorState extends ConsumerState<CommunityDiscussionEditorPage> {
@@ -22,11 +24,21 @@ class _EditorState extends ConsumerState<CommunityDiscussionEditorPage> {
   bool _saving = false;
   String? _error;
 
+  final _images = <PendingImage>[];
+  var _tagIds = <String>{};
+
+  int get _remaining => DiscussionImages.maxPerEntry - _images.length;
+
   @override
   void dispose() {
     _title.dispose();
     _body.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickImages() async {
+    final picked = await pickDiscussionImages(_remaining);
+    if (picked.isNotEmpty && mounted) setState(() => _images.addAll(picked));
   }
 
   Future<void> _save(String communityId) async {
@@ -37,10 +49,14 @@ class _EditorState extends ConsumerState<CommunityDiscussionEditorPage> {
     });
 
     try {
-      await ref.read(communityDiscussionListProvider.notifier).add(
+      await ref
+          .read(communityDiscussionListProvider.notifier)
+          .add(
             communityId: communityId,
             title: _title.text,
             body: _body.text,
+            images: _images,
+            tagIds: _tagIds.toList(),
           );
       if (mounted) {
         showAppSnack(context, 'Discussion started.');
@@ -107,6 +123,32 @@ class _EditorState extends ConsumerState<CommunityDiscussionEditorPage> {
             ),
             validator: (v) =>
                 (v?.trim().isEmpty ?? true) ? 'Content is required.' : null,
+          ),
+          const SizedBox(height: AppTheme.space4),
+          TagPicker(
+            selected: _tagIds,
+            enabled: !_saving,
+            onChanged: (value) => setState(() => _tagIds = value),
+          ),
+          const SizedBox(height: AppTheme.space4),
+          if (_images.isNotEmpty) ...[
+            PendingImageStrip(
+              images: _images,
+              enabled: !_saving,
+              size: 120,
+              onRemove: (index) => setState(() => _images.removeAt(index)),
+            ),
+            const SizedBox(height: AppTheme.space3),
+          ],
+          OutlinedButton.icon(
+            onPressed: _saving || _remaining == 0 ? null : _pickImages,
+            icon: const Icon(Icons.add_photo_alternate_outlined),
+            label: Text(
+              _remaining == 0
+                  ? 'Image limit reached'
+                  : 'Add images (${_images.length}/'
+                        '${DiscussionImages.maxPerEntry})',
+            ),
           ),
           if (_error != null) ...[
             const SizedBox(height: AppTheme.space4),

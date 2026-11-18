@@ -89,11 +89,17 @@ class _DevotionalScroll extends ConsumerWidget {
     final today = DateTime.now();
     final isToday = devotional.isForToday(today);
     final profile = ref.watch(currentProfileProvider).value;
-    final isYouth = profile?.role.canTrackRelationships ?? false;
+    final canTrackRelationships =
+        profile?.role.canTrackRelationships ?? false;
 
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(AppTheme.space5),
+      // A 16px gutter, not 24, on phones: the hero band and body text get the
+      // width back.
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTheme.space4,
+        vertical: AppTheme.space5,
+      ),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: AppTheme.maxContentWidth),
@@ -116,10 +122,11 @@ class _DevotionalScroll extends ConsumerWidget {
               ],
               DevotionalView(
                 devotional: devotional,
+                scenicVerse: true,
                 inwardChild: InwardReflectionCard(
                   devotionalId: devotional.id,
                 ),
-                outwardChild: isYouth
+                outwardChild: canTrackRelationships
                     ? FilledButton.tonalIcon(
                         onPressed: () => context.go(Routes.relationships),
                         icon: const Icon(Icons.favorite_outline),

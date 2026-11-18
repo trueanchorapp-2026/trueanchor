@@ -63,11 +63,9 @@ class RelationshipListPage extends ConsumerWidget {
             }
 
             return ListView.builder(
-              padding: EdgeInsets.fromLTRB(
-                AppTheme.space4,
-                AppTheme.space4,
-                AppTheme.space4,
-                canAuthor ? 96 : AppTheme.space4, // clears the FAB
+              padding: feedInsets(
+                context,
+                bottom: canAuthor ? AppTheme.fabClearance : AppTheme.space4,
               ),
               itemCount: relationships.length,
               itemBuilder: (context, index) => _RelationshipCard(
@@ -84,15 +82,12 @@ class RelationshipListPage extends ConsumerWidget {
   /// An empty list means something different to each reader: the youth has not
   /// started, while a parent or pastor may simply not have been let in.
   static String _emptyMessageFor(UserRole? role) => switch (role) {
-        UserRole.parent =>
-          'When the youth in your household share who they are reaching out '
-              'to, it will show up here.',
         UserRole.youthPastor =>
           'When youth in your church share who they are reaching out to, it '
               'will show up here.',
-        _ => 'Start tracking a relationship — a classmate you want to '
-            "befriend, someone you're praying for, or a person you invited to "
-            'church.',
+        _ => 'Start tracking a relationship — a neighbor, coworker, or '
+            "someone you're praying for. Log interactions to see your "
+            'outward investment grow.',
       };
 }
 
