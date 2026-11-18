@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:trueanchor/features/devotionals/domain/devotional_audience.dart';
 import 'package:trueanchor/features/profile/domain/profile.dart';
 import 'package:trueanchor/features/profile/domain/user_role.dart';
 
@@ -126,6 +127,24 @@ void main() {
       final profile = Profile.fromJson(_row(birthDate: '2011-03-15'));
       expect(profile.copyWith(firstName: 'Ellie').birthDate,
           profile.birthDate);
+    });
+  });
+
+  group('UserRole.devotionalAudience', () {
+    test('youth and youth pastors read the youth track', () {
+      expect(UserRole.youth.devotionalAudience, DevotionalAudience.youth);
+      expect(UserRole.youthPastor.devotionalAudience, DevotionalAudience.youth);
+    });
+
+    test('other adults prefer the adult track', () {
+      for (final role in [
+        UserRole.parent,
+        UserRole.churchAdmin,
+        UserRole.regionalAdmin,
+        UserRole.appAdmin,
+      ]) {
+        expect(role.devotionalAudience, DevotionalAudience.adult);
+      }
     });
   });
 

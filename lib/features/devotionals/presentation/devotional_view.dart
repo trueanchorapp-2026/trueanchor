@@ -3,15 +3,19 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/scenic_header.dart';
 import '../domain/devotional.dart';
+import 'devotional_section.dart';
 
-/// Renders one devotional in four sections: Verse of the Day, Upward
-/// Reflection, Inward Reflection prompts, and Outward. Pure display — no
-/// providers, no navigation — so it can be reused by the today page, history,
-/// or any future preview screen.
+/// Renders one devotional. Pure display — no providers, no navigation — so it
+/// can be reused by the today page, history, or any future preview screen.
 ///
-/// The interactive Inward Reflection input is NOT part of this widget — it is
-/// added by the parent (e.g. TodayPage) between the upward and outward
-/// sections via [inwardChild].
+/// Structured (weekly) devotionals render every section in order: Verse,
+/// Context, Go Deeper, Summary, Upward, Inward, Outward, Prayer,
+/// Self-Application, Love in Action. Legacy rows render Verse, Upward (body),
+/// Inward (discussion questions) and Outward.
+///
+/// Interactive pieces come from the parent through slots: [inwardChild] (the
+/// inline journal card), [outwardChild] (e.g. "Log Love in Action") and
+/// [prayerChild].
 class DevotionalView extends StatelessWidget {
   const DevotionalView({
     required this.devotional,
@@ -24,14 +28,13 @@ class DevotionalView extends StatelessWidget {
 
   final Devotional devotional;
 
-  /// Slot for the interactive Inward Reflection card, inserted between the
-  /// prompts and the Outward section.
+  /// Slot for the interactive Inward Reflection card, below the prompts.
   final Widget? inwardChild;
 
-  /// Slot rendered below the Outward text (e.g. a "Log Love in Action" button).
+  /// Slot rendered below the Outward text.
   final Widget? outwardChild;
 
-  /// Slot rendered after the Outward section for prayer content.
+  /// Slot rendered in the Prayer section.
   final Widget? prayerChild;
 
   /// Set the verse on the landscape hero band. Reserved for today's
@@ -42,123 +45,27 @@ class DevotionalView extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final d = devotional;
+    const gap = SizedBox(height: AppTheme.space5);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(devotional.title, style: theme.textTheme.headlineSmall),
-        const SizedBox(height: AppTheme.space4),
-
-        // — Verse of the Day —
-        if (scenicVerse)
-          ScenicHeader(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const _SectionHeader(
-                  icon: Icons.auto_stories_outlined,
-                  label: 'Verse of the Day',
-                ),
-                const SizedBox(height: AppTheme.space3),
-                _VerseText(devotional: devotional),
-              ],
-            ),
-          )
-        else ...[
-          const _SectionHeader(
-            icon: Icons.auto_stories_outlined,
-            label: 'Verse of the Day',
-          ),
-          const SizedBox(height: AppTheme.space3),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(AppTheme.space4),
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainer,
-              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-            ),
-            child: _VerseText(devotional: devotional),
-          ),
-        ],
-        const SizedBox(height: AppTheme.space5),
-
-        // — Upward Reflection —
-        _SectionHeader(
-          icon: Icons.arrow_upward,
-          label: 'Upward Reflection',
-          color: scheme.primary,
-          container: scheme.primaryContainer,
-        ),
-        const SizedBox(height: AppTheme.space3),
-        for (final paragraph in _paragraphs(devotional.body)) ...[
-          Text(paragraph, style: theme.textTheme.bodyLarge),
-          const SizedBox(height: AppTheme.space4),
-        ],
-
-        // — Inward Reflection —
-        _SectionHeader(
-          icon: Icons.self_improvement_outlined,
-          label: 'Inward Reflection',
-          color: scheme.secondary,
-          container: scheme.secondaryContainer,
-        ),
-        const SizedBox(height: AppTheme.space3),
-        if (devotional.hasQuestions) ...[
-          for (var i = 0; i < devotional.discussionQuestions.length; i++)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppTheme.space3),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('${i + 1}.', style: theme.textTheme.bodyLarge),
-                  const SizedBox(width: AppTheme.space2),
-                  Expanded(
-                    child: Text(
-                      devotional.discussionQuestions[i],
-                      style: theme.textTheme.bodyLarge,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
-        if (inwardChild != null) ...[
-          const SizedBox(height: AppTheme.space2),
-          inwardChild!,
-        ],
-        const SizedBox(height: AppTheme.space5),
-
-        // — Outward —
-        if (devotional.outwardText != null) ...[
-          _SectionHeader(
-            icon: Icons.diversity_3_outlined,
-            label: 'Outward',
-            color: scheme.tertiary,
-            container: scheme.tertiaryContainer,
-          ),
-          const SizedBox(height: AppTheme.space3),
-          Text(devotional.outwardText!, style: theme.textTheme.bodyLarge),
-          if (outwardChild != null) ...[
-            const SizedBox(height: AppTheme.space3),
-            outwardChild!,
-          ],
-          const SizedBox(height: AppTheme.space5),
-        ],
-
-        // — Prayer —
-        if (prayerChild != null) ...[
-          const _SectionHeader(
-            icon: Icons.volunteer_activism_outlined,
-            label: 'Prayer',
-          ),
-          const SizedBox(height: AppTheme.space3),
-          prayerChild!,
-          const SizedBox(height: AppTheme.space5),
-        ],
-
-        if (devotional.copyrightNotice != null)
+        if (d.themeLabel != null) ...[
           Text(
-            devotional.copyrightNotice!,
+            'This week: ${d.themeLabel}',
+            style: theme.textTheme.labelLarge?.copyWith(color: scheme.primary),
+          ),
+          const SizedBox(height: AppTheme.space2),
+        ],
+        Text(d.title, style: theme.textTheme.headlineSmall),
+        const SizedBox(height: AppTheme.space4),
+        _Verse(devotional: d, scenic: scenicVerse),
+        gap,
+        if (d.isStructured) ..._structured(context) else ..._legacy(context),
+        if (d.copyrightNotice != null)
+          Text(
+            d.copyrightNotice!,
             style: theme.textTheme.bodySmall?.copyWith(
               color: scheme.onSurfaceVariant,
             ),
@@ -166,55 +73,239 @@ class DevotionalView extends StatelessWidget {
       ],
     );
   }
+
+  List<Widget> _structured(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final d = devotional;
+    const gap = SizedBox(height: AppTheme.space5);
+    final themeTitle = d.theme?.title;
+
+    return [
+      if (d.context != null) ...[
+        DevotionalSection(
+          icon: Icons.history_edu_outlined,
+          label: themeTitle == null ? 'In Context' : '$themeTitle in Context',
+          body: d.context,
+        ),
+        gap,
+      ],
+      if (d.deeperText != null) ...[
+        _GoDeeper(devotional: d),
+        gap,
+      ],
+      if (d.summary != null) ...[
+        DevotionalSection(
+          icon: Icons.summarize_outlined,
+          label: 'Summary',
+          body: d.summary,
+        ),
+        gap,
+      ],
+      DevotionalSection(
+        icon: Icons.arrow_upward,
+        label: 'Upward',
+        color: scheme.primary,
+        container: scheme.primaryContainer,
+        body: d.upwardBody,
+        questions: d.upwardQuestions,
+      ),
+      gap,
+      DevotionalSection(
+        icon: Icons.self_improvement_outlined,
+        label: 'Inward',
+        color: scheme.secondary,
+        container: scheme.secondaryContainer,
+        body: d.inwardBody,
+        questions: d.inwardPrompts,
+        child: inwardChild,
+      ),
+      gap,
+      if (d.outwardText != null) ...[
+        DevotionalSection(
+          icon: Icons.diversity_3_outlined,
+          label: 'Outward',
+          color: scheme.tertiary,
+          container: scheme.tertiaryContainer,
+          body: d.outwardText,
+          questions: d.outwardQuestions,
+        ),
+        gap,
+      ],
+      if (d.prayer != null || prayerChild != null) ...[
+        DevotionalSection(
+          icon: Icons.volunteer_activism_outlined,
+          label: 'Prayer',
+          body: d.prayer,
+          child: prayerChild,
+        ),
+        gap,
+      ],
+      if (d.selfApplicationQuestions.isNotEmpty) ...[
+        DevotionalSection(
+          icon: Icons.checklist_outlined,
+          label: 'Self-Application',
+          questions: d.selfApplicationQuestions,
+          questionsLabel: null,
+        ),
+        gap,
+      ],
+      if (d.loveInAction != null) ...[
+        DevotionalSection(
+          icon: Icons.favorite_outline,
+          label: 'Love in Action',
+          color: scheme.tertiary,
+          container: scheme.tertiaryContainer,
+          body: d.loveInAction,
+          questions: d.loveInActionQuestions,
+          child: outwardChild,
+        ),
+        gap,
+      ],
+    ];
+  }
+
+  List<Widget> _legacy(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final d = devotional;
+    const gap = SizedBox(height: AppTheme.space5);
+
+    return [
+      DevotionalSection(
+        icon: Icons.arrow_upward,
+        label: 'Upward Reflection',
+        color: scheme.primary,
+        container: scheme.primaryContainer,
+        body: d.upwardText,
+      ),
+      gap,
+      DevotionalSection(
+        icon: Icons.self_improvement_outlined,
+        label: 'Inward Reflection',
+        color: scheme.secondary,
+        container: scheme.secondaryContainer,
+        questions: d.inwardPrompts,
+        questionsLabel: null,
+        child: inwardChild,
+      ),
+      gap,
+      if (d.outwardText != null) ...[
+        DevotionalSection(
+          icon: Icons.diversity_3_outlined,
+          label: 'Outward',
+          color: scheme.tertiary,
+          container: scheme.tertiaryContainer,
+          body: d.outwardText,
+          child: outwardChild,
+        ),
+        gap,
+      ],
+      if (prayerChild != null) ...[
+        DevotionalSection(
+          icon: Icons.volunteer_activism_outlined,
+          label: 'Prayer',
+          child: prayerChild,
+        ),
+        gap,
+      ],
+    ];
+  }
 }
 
-/// A section label. Upward, Inward and Outward each pass their own
-/// [color]/[container] pair and get a filled badge, so the three directions
-/// of growth read as distinct at a glance.
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({
-    required this.icon,
-    required this.label,
-    this.color,
-    this.container,
-  });
+class _Verse extends StatelessWidget {
+  const _Verse({required this.devotional, required this.scenic});
 
-  final IconData icon;
-  final String label;
-  final Color? color;
-  final Color? container;
+  final Devotional devotional;
+  final bool scenic;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final foreground = color ?? theme.colorScheme.primary;
-    return Row(
+    final scheme = Theme.of(context).colorScheme;
+    const header = DevotionalSectionHeader(
+      icon: Icons.auto_stories_outlined,
+      label: 'Verse of the Day',
+    );
+    final text = _VerseText(
+      text: devotional.scriptureText,
+      attribution: devotional.attribution,
+    );
+
+    if (scenic) {
+      return ScenicHeader(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [header, const SizedBox(height: AppTheme.space3), text],
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (container != null)
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: container,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, size: 18, color: foreground),
-          )
-        else
-          Icon(icon, size: 20, color: foreground),
-        const SizedBox(width: AppTheme.space2),
-        Text(
-          label,
-          style: theme.textTheme.titleMedium?.copyWith(color: foreground),
+        header,
+        const SizedBox(height: AppTheme.space3),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(AppTheme.space4),
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainer,
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          ),
+          child: text,
         ),
       ],
     );
   }
 }
 
-class _VerseText extends StatelessWidget {
-  const _VerseText({required this.devotional});
+/// The Go Deeper passage, collapsed by default: it is long, and the verse of
+/// the day already sits above it.
+class _GoDeeper extends StatelessWidget {
+  const _GoDeeper({required this.devotional});
 
   final Devotional devotional;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+      ),
+      child: Theme(
+        // Drop the ExpansionTile's divider lines inside the rounded block.
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding:
+              const EdgeInsets.symmetric(horizontal: AppTheme.space4),
+          childrenPadding: const EdgeInsets.fromLTRB(
+            AppTheme.space4,
+            0,
+            AppTheme.space4,
+            AppTheme.space4,
+          ),
+          title: DevotionalSectionHeader(
+            icon: Icons.menu_book_outlined,
+            label: devotional.deeperReference == null
+                ? 'Go Deeper'
+                : 'Go Deeper | ${devotional.deeperReference}',
+          ),
+          children: [
+            _VerseText(
+              text: devotional.deeperText!,
+              attribution: devotional.deeperAttribution,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _VerseText extends StatelessWidget {
+  const _VerseText({required this.text, this.attribution});
+
+  final String text;
+  final String? attribution;
 
   @override
   Widget build(BuildContext context) {
@@ -225,7 +316,7 @@ class _VerseText extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          devotional.scriptureText,
+          text,
           style: theme.textTheme.titleMedium?.copyWith(
             fontFamily: AppTheme.serifFamily,
             fontStyle: FontStyle.italic,
@@ -234,19 +325,15 @@ class _VerseText extends StatelessWidget {
             color: scheme.onSurface,
           ),
         ),
-        const SizedBox(height: AppTheme.space3),
-        Text(
-          devotional.attribution,
-          style: theme.textTheme.labelLarge
-              ?.copyWith(color: scheme.onSurfaceVariant),
-        ),
+        if (attribution != null) ...[
+          const SizedBox(height: AppTheme.space3),
+          Text(
+            attribution!,
+            style: theme.textTheme.labelLarge
+                ?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+        ],
       ],
     );
   }
 }
-
-List<String> _paragraphs(String body) => body
-    .split(RegExp(r'\n\s*\n'))
-    .map((part) => part.trim())
-    .where((part) => part.isNotEmpty)
-    .toList(growable: false);

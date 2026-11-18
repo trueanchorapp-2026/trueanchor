@@ -136,12 +136,15 @@ class _DevotionalScroll extends ConsumerWidget {
                 prayerChild: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Take a moment to pray about what you read today. Ask God '
-                      'to help you live it out.',
-                      style: theme.textTheme.bodyLarge,
-                    ),
-                    const SizedBox(height: AppTheme.space3),
+                    // Structured devotionals carry their own written prayer.
+                    if (devotional.prayer == null) ...[
+                      Text(
+                        'Take a moment to pray about what you read today. Ask '
+                        'God to help you live it out.',
+                        style: theme.textTheme.bodyLarge,
+                      ),
+                      const SizedBox(height: AppTheme.space3),
+                    ],
                     FilledButton.tonalIcon(
                       onPressed: () => context.push(
                         Routes.journalNewFor(type: 'prayer'),
