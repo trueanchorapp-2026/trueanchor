@@ -103,7 +103,7 @@ create policy community_discussion_tags_delete on public.community_discussion_ta
     )
   );
 
--- At most 3 tags per discussion (matches DiscussionQuery.maxTagsPerPost).
+-- At most 3 tags per discussion (matches TopicTag.maxPerPost).
 create or replace function private.enforce_discussion_tag_limit()
 returns trigger language plpgsql set search_path = '' as $$
 begin

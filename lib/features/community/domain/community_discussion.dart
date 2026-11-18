@@ -1,5 +1,6 @@
 import 'discussion_image.dart';
 import 'topic_tag.dart';
+import 'vote.dart';
 
 class CommunityDiscussion {
   const CommunityDiscussion({
@@ -15,6 +16,7 @@ class CommunityDiscussion {
     this.lastActivityAt,
     this.imageUrls = const [],
     this.tagIds = const [],
+    this.votes = const VoteTally(),
   });
 
   factory CommunityDiscussion.fromJson(Map<String, dynamic> json) =>
@@ -36,6 +38,7 @@ class CommunityDiscussion {
                 ?.toLocal(),
         imageUrls: DiscussionImages.urlsFromJson(json['image_urls']),
         tagIds: TopicTag.idsFromJson(json['tag_ids'] ?? json['tags']),
+        votes: VoteTally.fromJson(json),
         createdAt: DateTime.tryParse(json['created_at'] as String? ?? '')
                 ?.toLocal() ??
             DateTime.now(),
@@ -54,6 +57,7 @@ class CommunityDiscussion {
   final DateTime? lastActivityAt;
   final List<String> imageUrls;
   final List<String> tagIds;
+  final VoteTally votes;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -63,6 +67,7 @@ class CommunityDiscussion {
     List<String>? tagIds,
     int? replyCount,
     DateTime? lastActivityAt,
+    VoteTally? votes,
   }) =>
       CommunityDiscussion(
         id: id,
@@ -77,6 +82,7 @@ class CommunityDiscussion {
         lastActivityAt: lastActivityAt ?? this.lastActivityAt,
         imageUrls: imageUrls,
         tagIds: tagIds ?? this.tagIds,
+        votes: votes ?? this.votes,
       );
 
   static String? _authorNameFrom(Object? embedded) {
@@ -122,20 +128,28 @@ class DiscussionReply {
     required this.createdAt,
     this.authorName,
     this.imageUrls = const [],
+    this.helpfulCount = 0,
+    this.markedHelpfulByMe = false,
   });
 
-  factory DiscussionReply.fromJson(Map<String, dynamic> json) =>
-      DiscussionReply(
-        id: json['id'] as String,
-        discussionId: json['discussion_id'] as String,
-        authorId: json['author_id'] as String,
-        body: json['body'] as String,
-        authorName: _authorNameFrom(json['author']),
-        imageUrls: DiscussionImages.urlsFromJson(json['image_urls']),
-        createdAt: DateTime.tryParse(json['created_at'] as String? ?? '')
-                ?.toLocal() ??
-            DateTime.now(),
-      );
+  factory DiscussionReply.fromJson(Map<String, dynamic> json) {
+    // `my_votes` is an embed of community_reply_votes; RLS limits it to the
+    // caller's own row, so non-empty means "I marked this helpful".
+    final mine = json['my_votes'];
+    return DiscussionReply(
+      id: json['id'] as String,
+      discussionId: json['discussion_id'] as String,
+      authorId: json['author_id'] as String,
+      body: json['body'] as String,
+      authorName: _authorNameFrom(json['author']),
+      imageUrls: DiscussionImages.urlsFromJson(json['image_urls']),
+      helpfulCount: (json['helpful_count'] as num?)?.toInt() ?? 0,
+      markedHelpfulByMe: mine is List && mine.isNotEmpty,
+      createdAt: DateTime.tryParse(json['created_at'] as String? ?? '')
+              ?.toLocal() ??
+          DateTime.now(),
+    );
+  }
 
   final String id;
   final String discussionId;
@@ -143,9 +157,34 @@ class DiscussionReply {
   final String body;
   final String? authorName;
   final List<String> imageUrls;
+  final int helpfulCount;
+  final bool markedHelpfulByMe;
   final DateTime createdAt;
 
   bool isAuthoredBy(String userId) => authorId == userId;
+
+  DiscussionReply copyWith({int? helpfulCount, bool? markedHelpfulByMe}) =>
+      DiscussionReply(
+        id: id,
+        discussionId: discussionId,
+        authorId: authorId,
+        body: body,
+        createdAt: createdAt,
+        authorName: authorName,
+        imageUrls: imageUrls,
+        helpfulCount: helpfulCount ?? this.helpfulCount,
+        markedHelpfulByMe: markedHelpfulByMe ?? this.markedHelpfulByMe,
+      );
+
+  /// The reply after the user toggles "helpful" (optimistic update).
+  DiscussionReply toggledHelpful() {
+    final on = !markedHelpfulByMe;
+    final count = helpfulCount + (on ? 1 : -1);
+    return copyWith(
+      markedHelpfulByMe: on,
+      helpfulCount: count < 0 ? 0 : count,
+    );
+  }
 
   static String? _authorNameFrom(Object? embedded) {
     if (embedded is! Map) return null;

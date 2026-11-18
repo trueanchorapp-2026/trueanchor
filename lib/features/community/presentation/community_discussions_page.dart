@@ -9,8 +9,10 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../application/community_providers.dart';
 import '../domain/community_discussion.dart';
+import '../domain/feed_query.dart';
 import 'discussion_images.dart';
 import 'topic_tag_widgets.dart';
+import 'vote_widgets.dart';
 
 class CommunityDiscussionsPage extends ConsumerWidget {
   const CommunityDiscussionsPage({super.key});
@@ -71,6 +73,7 @@ class _DiscussionList extends ConsumerWidget {
               initialText: query.text,
               isFiltered: query.isFiltered,
               sort: query.sort,
+              allowedSorts: FeedSort.discussionSorts,
               onToggleTag: queryNotifier.toggleTag,
               onTextChanged: queryNotifier.setText,
               onSortChanged: queryNotifier.setSort,
@@ -145,7 +148,7 @@ class _DiscussionCard extends ConsumerWidget {
     final userId = ref.watch(currentUserIdProvider);
     final isAuthor = userId != null && discussion.isAuthoredBy(userId);
     final isCommunityAdmin =
-        ref.watch(myMembershipProvider).value?.isAdmin ?? false;
+        ref.watch(isCommunityAdminProvider);
     final replyCount = discussion.replyCount ?? 0;
 
     return Card(
@@ -207,11 +210,22 @@ class _DiscussionCard extends ConsumerWidget {
               const SizedBox(height: AppTheme.space3),
               Row(
                 children: [
-                  if (discussion.authorName != null)
-                    Text(discussion.authorName!,
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: onMuted)),
-                  const Spacer(),
+                  VoteBar(
+                    votes: discussion.votes,
+                    onVote: (direction) => ref
+                        .read(communityDiscussionListProvider.notifier)
+                        .vote(discussion, direction),
+                  ),
+                  const SizedBox(width: AppTheme.space2),
+                  Expanded(
+                    child: Text(
+                      discussion.authorName ?? '',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style:
+                          theme.textTheme.bodySmall?.copyWith(color: onMuted),
+                    ),
+                  ),
                   Icon(Icons.chat_bubble_outline, size: 14, color: onMuted),
                   const SizedBox(width: AppTheme.space1),
                   Text(

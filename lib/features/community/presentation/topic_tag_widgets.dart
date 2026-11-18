@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../application/community_providers.dart';
-import '../domain/discussion_query.dart';
+import '../domain/feed_query.dart';
 import '../domain/topic_tag.dart';
 
 /// Search box, tag chips and (optionally) a sort menu above a filterable list.
@@ -21,6 +21,7 @@ class TagFilterBar extends ConsumerStatefulWidget {
     this.isFiltered = false,
     this.searchHint = 'Search',
     this.sort,
+    this.allowedSorts = FeedSort.discussionSorts,
     this.onSortChanged,
     super.key,
   });
@@ -34,8 +35,11 @@ class TagFilterBar extends ConsumerStatefulWidget {
   final String searchHint;
 
   /// When null, no sort menu is shown.
-  final DiscussionSort? sort;
-  final ValueChanged<DiscussionSort>? onSortChanged;
+  final FeedSort? sort;
+  final ValueChanged<FeedSort>? onSortChanged;
+
+  /// Options in the sort menu (each feed offers its own).
+  final List<FeedSort> allowedSorts;
 
   @override
   ConsumerState<TagFilterBar> createState() => _TagFilterBarState();
@@ -123,7 +127,11 @@ class _TagFilterBarState extends ConsumerState<TagFilterBar> {
             ),
             if (widget.sort != null) ...[
               const SizedBox(width: AppTheme.space2),
-              _SortMenu(sort: widget.sort!, onChanged: widget.onSortChanged),
+              _SortMenu(
+                sort: widget.sort!,
+                options: widget.allowedSorts,
+                onChanged: widget.onSortChanged,
+              ),
             ],
           ],
         ),
@@ -212,19 +220,24 @@ class _CollapsedChipRow extends StatelessWidget {
 }
 
 class _SortMenu extends StatelessWidget {
-  const _SortMenu({required this.sort, this.onChanged});
+  const _SortMenu({
+    required this.sort,
+    required this.options,
+    this.onChanged,
+  });
 
-  final DiscussionSort sort;
-  final ValueChanged<DiscussionSort>? onChanged;
+  final FeedSort sort;
+  final List<FeedSort> options;
+  final ValueChanged<FeedSort>? onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return PopupMenuButton<DiscussionSort>(
+    return PopupMenuButton<FeedSort>(
       tooltip: 'Sort',
       initialValue: sort,
       onSelected: onChanged,
       itemBuilder: (_) => [
-        for (final option in DiscussionSort.values)
+        for (final option in options)
           CheckedPopupMenuItem(
             value: option,
             checked: option == sort,

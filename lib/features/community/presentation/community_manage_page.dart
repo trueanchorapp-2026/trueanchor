@@ -6,6 +6,7 @@ import '../../../core/widgets/app_widgets.dart';
 import '../application/community_providers.dart';
 import '../domain/community.dart';
 import '../domain/region.dart';
+import 'community_admin_sheet.dart';
 
 class CommunityManagePage extends ConsumerWidget {
   const CommunityManagePage({super.key});
@@ -248,10 +249,25 @@ class _CommunitiesSection extends ConsumerWidget {
                 subtitle: community.locationDisplay.isNotEmpty
                     ? Text(community.locationDisplay)
                     : null,
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete_outline, size: 20),
-                  onPressed: () =>
-                      _deleteCommunity(context, ref, community),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip: 'Community admins',
+                      icon: const Icon(
+                        Icons.admin_panel_settings_outlined,
+                        size: 20,
+                      ),
+                      onPressed: () =>
+                          showCommunityAdminSheet(context, community),
+                    ),
+                    IconButton(
+                      tooltip: 'Delete community',
+                      icon: const Icon(Icons.delete_outline, size: 20),
+                      onPressed: () =>
+                          _deleteCommunity(context, ref, community),
+                    ),
+                  ],
                 ),
               ),
             const SizedBox(height: AppTheme.space2),

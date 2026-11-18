@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,7 +10,12 @@ import 'package:trueanchor/features/community/domain/community_discussion.dart';
 import 'package:trueanchor/features/community/domain/community_membership.dart';
 import 'package:trueanchor/features/community/domain/community_repository.dart';
 import 'package:trueanchor/features/community/domain/discussion_image.dart';
-import 'package:trueanchor/features/community/domain/discussion_query.dart';
+import 'package:trueanchor/features/community/domain/feed_query.dart';
+import 'package:trueanchor/features/community/domain/published_post.dart';
+import 'package:trueanchor/features/community/domain/vote.dart';
+import 'package:trueanchor/features/profile/application/profile_providers.dart';
+import 'package:trueanchor/features/profile/domain/profile.dart';
+import 'package:trueanchor/features/profile/domain/user_role.dart';
 
 class MockCommunityRepository extends Mock implements CommunityRepository {}
 
@@ -33,7 +39,6 @@ CommunityMembership _membership() => CommunityMembership(
       communityId: 'c1',
       familyId: 'f1',
       joinedBy: 'u1',
-      isAdmin: false,
       joinedAt: DateTime(2026),
     );
 
@@ -185,7 +190,7 @@ void main() {
 
   group('tags and query', () {
     setUp(() {
-      registerFallbackValue(const DiscussionQuery());
+      registerFallbackValue(const FeedQuery());
       when(() => repository.fetchMyMembership())
           .thenAnswer((_) async => _membership());
       when(() => repository.searchDiscussions(any(), any()))
@@ -244,14 +249,14 @@ void main() {
 
       c.read(discussionQueryProvider.notifier)
         ..toggleTag('t1')
-        ..setSort(DiscussionSort.mostReplies);
+        ..setSort(FeedSort.mostReplies);
       await c.read(communityDiscussionListProvider.future);
 
       verify(() => repository.searchDiscussions(
             'c1',
-            const DiscussionQuery(
+            const FeedQuery(
               tagIds: {'t1'},
-              sort: DiscussionSort.mostReplies,
+              sort: FeedSort.mostReplies,
             ),
           )).called(1);
     });
@@ -332,4 +337,229 @@ void main() {
       verifyNoUploads();
     });
   });
+
+  group('votes', () {
+    setUp(() {
+      registerFallbackValue(const FeedQuery());
+      registerFallbackValue(VoteTarget.discussion);
+      when(() => repository.fetchMyMembership())
+          .thenAnswer((_) async => _membership());
+      when(() => repository.searchDiscussions(any(), any()))
+          .thenAnswer((_) async => [_discussion()]);
+    });
+
+    CommunityDiscussion listed(ProviderContainer c) =>
+        c.read(communityDiscussionListProvider).value!.single;
+
+    test('shows the vote at once, then the saved tally', () async {
+      final saved = Completer<VoteTally>();
+      when(() => repository.castVote(
+            target: any(named: 'target'),
+            itemId: any(named: 'itemId'),
+            value: any(named: 'value'),
+          )).thenAnswer((_) => saved.future);
+      final c = container();
+      await c.read(communityDiscussionListProvider.future);
+
+      final pending = c
+          .read(communityDiscussionListProvider.notifier)
+          .vote(listed(c), 1);
+      expect(listed(c).votes, const VoteTally(upvotes: 1, myVote: 1));
+
+      saved.complete(const VoteTally(upvotes: 5, myVote: 1));
+      await pending;
+      expect(listed(c).votes, const VoteTally(upvotes: 5, myVote: 1));
+      verify(() => repository.castVote(
+            target: VoteTarget.discussion,
+            itemId: 'd1',
+            value: 1,
+          )).called(1);
+    });
+
+    test('rolls back and rethrows when the vote fails', () async {
+      when(() => repository.castVote(
+            target: any(named: 'target'),
+            itemId: any(named: 'itemId'),
+            value: any(named: 'value'),
+          )).thenThrow(Exception('offline'));
+      final c = container();
+      await c.read(communityDiscussionListProvider.future);
+
+      await expectLater(
+        c.read(communityDiscussionListProvider.notifier).vote(listed(c), -1),
+        throwsException,
+      );
+      expect(listed(c).votes, const VoteTally());
+    });
+
+    test('toggleHelpful marks a reply and keeps the server count', () async {
+      when(() => repository.fetchReplies(any()))
+          .thenAnswer((_) async => [_reply()]);
+      when(() => repository.toggleReplyHelpful('r1'))
+          .thenAnswer((_) async => (helpfulCount: 7, markedByMe: true));
+      final c = container();
+      await c.read(discussionRepliesProvider('d1').future);
+
+      await c
+          .read(discussionRepliesProvider('d1').notifier)
+          .toggleHelpful('r1');
+
+      final reply = c.read(discussionRepliesProvider('d1')).value!.single;
+      expect((reply.helpfulCount, reply.markedHelpfulByMe), (7, true));
+    });
+
+    test('toggleHelpful rolls back on error', () async {
+      when(() => repository.fetchReplies(any()))
+          .thenAnswer((_) async => [_reply()]);
+      when(() => repository.toggleReplyHelpful('r1'))
+          .thenThrow(Exception('offline'));
+      final c = container();
+      await c.read(discussionRepliesProvider('d1').future);
+
+      await expectLater(
+        c.read(discussionRepliesProvider('d1').notifier).toggleHelpful('r1'),
+        throwsException,
+      );
+      final reply = c.read(discussionRepliesProvider('d1')).value!.single;
+      expect((reply.helpfulCount, reply.markedHelpfulByMe), (0, false));
+    });
+  });
+
+  group('published posts', () {
+    PublishedPost post({String id = 'n1', List<String> tagIds = const []}) =>
+        PublishedPost(
+          id: id,
+          kind: PublishedKind.news,
+          communityId: 'c1',
+          title: 'News',
+          body: 'Body',
+          tagIds: tagIds,
+          createdAt: DateTime(2026),
+          updatedAt: DateTime(2026),
+        );
+
+    setUp(() {
+      registerFallbackValue(const FeedQuery());
+      registerFallbackValue(PublishedKind.news);
+      when(() => repository.fetchMyMembership())
+          .thenAnswer((_) async => _membership());
+      when(() => repository.searchPosts(any(), any(), any()))
+          .thenAnswer((_) async => [post()]);
+      when(() => repository.createPost(
+            kind: any(named: 'kind'),
+            communityId: any(named: 'communityId'),
+            title: any(named: 'title'),
+            body: any(named: 'body'),
+            linkUrl: any(named: 'linkUrl'),
+            tagIds: any(named: 'tagIds'),
+          )).thenAnswer((_) async => post(id: 'n2', tagIds: ['t1']));
+    });
+
+    test('add passes link and tags and puts the post first', () async {
+      final c = container();
+      final provider = publishedPostListProvider(PublishedKind.news);
+      await c.read(provider.future);
+
+      await c.read(provider.notifier).add(
+            communityId: 'c1',
+            title: 'News',
+            body: 'Body',
+            linkUrl: 'example.org',
+            tagIds: ['t1'],
+          );
+
+      verify(() => repository.createPost(
+            kind: PublishedKind.news,
+            communityId: 'c1',
+            title: 'News',
+            body: 'Body',
+            linkUrl: 'example.org',
+            tagIds: ['t1'],
+          )).called(1);
+      expect(c.read(provider).value!.map((p) => p.id), ['n2', 'n1']);
+    });
+
+    test('each kind has its own query; changing it re-searches', () async {
+      final c = container();
+      final provider = publishedPostListProvider(PublishedKind.resource);
+      await c.read(provider.future);
+
+      c
+          .read(postQueryProvider(PublishedKind.resource).notifier)
+          .setSort(FeedSort.title);
+      await c.read(provider.future);
+
+      verify(() => repository.searchPosts(
+            PublishedKind.resource,
+            'c1',
+            const FeedQuery(sort: FeedSort.title),
+          )).called(1);
+      expect(
+        c.read(postQueryProvider(PublishedKind.news)).sort,
+        FeedSort.newest,
+      );
+    });
+  });
+
+  group('isCommunityAdminProvider', () {
+    ProviderContainer withProfile(String userId, UserRole role) =>
+        ProviderContainer.test(
+          overrides: [
+            currentUserIdProvider.overrideWithValue(userId),
+            communityRepositoryProvider.overrideWithValue(repository),
+            currentProfileProvider.overrideWith(
+              () => _FakeProfile(Profile(
+                id: userId,
+                role: role,
+                firstName: 'A',
+                lastName: 'B',
+                email: 'a@b.c',
+              )),
+            ),
+          ],
+        );
+
+    Future<bool> isAdmin(ProviderContainer c) async {
+      await c.read(currentProfileProvider.future);
+      await c.read(myMembershipProvider.future);
+      return c.read(isCommunityAdminProvider);
+    }
+
+    setUp(() {
+      when(() => repository.fetchMyMembership()).thenAnswer(
+        (_) async => CommunityMembership(
+          id: 'm1',
+          communityId: 'c1',
+          familyId: 'f1',
+          joinedBy: 'dad',
+          adminUserId: 'mom',
+          joinedAt: DateTime(2026),
+        ),
+      );
+    });
+
+    test('the chosen adult is admin', () async {
+      expect(await isAdmin(withProfile('mom', UserRole.parent)), isTrue);
+    });
+
+    test('their spouse in the same family is not', () async {
+      expect(await isAdmin(withProfile('dad', UserRole.parent)), isFalse);
+    });
+
+    test('regional admins always are', () async {
+      expect(
+        await isAdmin(withProfile('ra', UserRole.regionalAdmin)),
+        isTrue,
+      );
+    });
+  });
+}
+
+class _FakeProfile extends CurrentProfile {
+  _FakeProfile(this._profile);
+
+  final Profile _profile;
+
+  @override
+  Future<Profile?> build() async => _profile;
 }

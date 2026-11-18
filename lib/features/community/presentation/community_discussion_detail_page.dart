@@ -10,6 +10,7 @@ import '../domain/community_discussion.dart';
 import '../domain/discussion_image.dart';
 import 'discussion_images.dart';
 import 'topic_tag_widgets.dart';
+import 'vote_widgets.dart';
 
 class CommunityDiscussionDetailPage extends ConsumerStatefulWidget {
   const CommunityDiscussionDetailPage({required this.discussionId, super.key});
@@ -67,12 +68,17 @@ class _DetailState extends ConsumerState<CommunityDiscussionDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final discussions = ref.watch(communityDiscussionListProvider);
     final replies = ref.watch(discussionRepliesProvider(widget.discussionId));
 
-    final discussion = discussions.value
-        ?.where((d) => d.id == widget.discussionId)
-        .firstOrNull;
+    // Prefer the list entry (so optimistic votes show at once); fall back to
+    // a fetch when the post isn't in the current, possibly filtered, list —
+    // e.g. when opened from a news post's related discussions.
+    final discussion = ref
+            .watch(communityDiscussionListProvider)
+            .value
+            ?.where((d) => d.id == widget.discussionId)
+            .firstOrNull ??
+        ref.watch(discussionByIdProvider(widget.discussionId)).value;
 
     return Scaffold(
       appBar: AppBar(title: Text(discussion?.title ?? 'Discussion')),
@@ -153,13 +159,13 @@ class _DetailState extends ConsumerState<CommunityDiscussionDetailPage> {
   }
 }
 
-class _PostHeader extends StatelessWidget {
+class _PostHeader extends ConsumerWidget {
   const _PostHeader({required this.post});
 
   final CommunityDiscussion post;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.all(AppTheme.space4),
@@ -197,6 +203,13 @@ class _PostHeader extends StatelessWidget {
           ],
           const SizedBox(height: AppTheme.space4),
           Text(post.body, style: theme.textTheme.bodyLarge),
+          const SizedBox(height: AppTheme.space3),
+          VoteBar(
+            votes: post.votes,
+            onVote: (direction) => ref
+                .read(communityDiscussionListProvider.notifier)
+                .vote(post, direction),
+          ),
         ],
       ),
     );
@@ -271,6 +284,13 @@ class _ReplyTile extends ConsumerWidget {
                   const SizedBox(height: AppTheme.space2),
                   DiscussionImageGallery.thumbnails(urls: reply.imageUrls),
                 ],
+                HelpfulButton(
+                  count: reply.helpfulCount,
+                  marked: reply.markedHelpfulByMe,
+                  onToggle: () => ref
+                      .read(discussionRepliesProvider(discussionId).notifier)
+                      .toggleHelpful(reply.id),
+                ),
               ],
             ),
           ),

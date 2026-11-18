@@ -1,18 +1,18 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/supabase_providers.dart';
+import '../../profile/application/profile_providers.dart';
 import '../domain/community.dart';
 import '../domain/community_discussion.dart';
 import '../domain/community_event.dart';
 import '../domain/community_membership.dart';
-import '../domain/community_news.dart';
 import '../domain/community_repository.dart';
 import '../domain/discussion_image.dart';
-import '../domain/discussion_query.dart';
-import '../domain/parent_resource.dart';
+import '../domain/feed_query.dart';
+import '../domain/published_post.dart';
 import '../domain/region.dart';
-import '../domain/resource_filter.dart';
 import '../domain/topic_tag.dart';
+import '../domain/vote.dart';
 import '../infrastructure/supabase_community_repository.dart';
 
 final communityRepositoryProvider = Provider<CommunityRepository>(
@@ -127,6 +127,17 @@ final myCommunityProvider = FutureProvider<Community?>((ref) async {
       .firstOrNull;
 });
 
+/// Whether the signed-in user may manage their community's news, Parent Hub,
+/// events and moderation. Community Admin is per person: other adults in the
+/// admin's family are not admins.
+final isCommunityAdminProvider = Provider<bool>((ref) {
+  final profile = ref.watch(currentProfileProvider).value;
+  if (profile == null) return false;
+  if (profile.role.canManageRegions) return true;
+  final membership = ref.watch(myMembershipProvider).value;
+  return membership?.isAdminFor(ref.watch(currentUserIdProvider)) ?? false;
+});
+
 // ── Community Members ────────────────────────────────────────────────────────
 
 final communityMembersProvider =
@@ -138,59 +149,41 @@ final communityMembersProvider =
       .fetchMembers(communityId);
 });
 
-// ── News ─────────────────────────────────────────────────────────────────────
+// ── Community admin (regional admin view) ────────────────────────────────────
 
-class CommunityNewsList extends AsyncNotifier<List<CommunityNewsItem>> {
+class CommunityAdminCandidates
+    extends AsyncNotifier<List<CommunityAdminCandidate>> {
+  CommunityAdminCandidates(this.communityId);
+
+  final String communityId;
+
   @override
-  Future<List<CommunityNewsItem>> build() async {
+  Future<List<CommunityAdminCandidate>> build() {
     ref.watch(currentUserIdProvider);
-    final membership = await ref.watch(myMembershipProvider.future);
-    if (membership == null) return const [];
     return ref
         .watch(communityRepositoryProvider)
-        .fetchNews(membership.communityId);
+        .fetchAdminCandidates(communityId);
   }
 
-  Future<void> refresh() async {
+  /// Makes [userId] the community admin for their family's membership, or
+  /// revokes it when [userId] is null.
+  Future<void> setAdmin({
+    required String membershipId,
+    String? userId,
+  }) async {
+    await ref
+        .read(communityRepositoryProvider)
+        .setAdmin(membershipId: membershipId, userId: userId);
+    ref.invalidate(myMembershipProvider);
+    ref.invalidate(communityMembersProvider(communityId));
     state = await AsyncValue.guard(build);
-  }
-
-  Future<void> add({
-    required String communityId,
-    required String title,
-    required String body,
-  }) async {
-    final created = await ref
-        .read(communityRepositoryProvider)
-        .createNews(communityId: communityId, title: title, body: body);
-    state = AsyncData([created, ...state.value ?? const []]);
-  }
-
-  Future<void> edit({
-    required String newsId,
-    required String title,
-    required String body,
-  }) async {
-    final updated = await ref
-        .read(communityRepositoryProvider)
-        .updateNews(newsId: newsId, title: title, body: body);
-    state = AsyncData([
-      for (final n in state.value ?? const <CommunityNewsItem>[])
-        if (n.id == newsId) updated else n,
-    ]);
-  }
-
-  Future<void> remove(String newsId) async {
-    await ref.read(communityRepositoryProvider).deleteNews(newsId);
-    state = AsyncData(
-      (state.value ?? const []).where((n) => n.id != newsId).toList(),
-    );
   }
 }
 
-final communityNewsListProvider =
-    AsyncNotifierProvider<CommunityNewsList, List<CommunityNewsItem>>(
-        CommunityNewsList.new);
+final communityAdminCandidatesProvider = AsyncNotifierProvider.family<
+    CommunityAdminCandidates, List<CommunityAdminCandidate>, String>(
+  CommunityAdminCandidates.new,
+);
 
 // ── Topic tags ───────────────────────────────────────────────────────────────
 
@@ -205,24 +198,189 @@ final topicTagsByIdProvider = Provider<Map<String, TopicTag>>((ref) => {
         tag.id: tag,
     });
 
-// ── Discussions ──────────────────────────────────────────────────────────────
+void _checkTagCount(List<String> tagIds) {
+  if (tagIds.length > TopicTag.maxPerPost) {
+    throw ArgumentError('At most ${TopicTag.maxPerPost} tags can be chosen.');
+  }
+}
 
-class DiscussionQueryNotifier extends Notifier<DiscussionQuery> {
+// ── Feed queries ─────────────────────────────────────────────────────────────
+
+/// Filter/search/sort state for one community feed.
+class FeedQueryNotifier extends Notifier<FeedQuery> {
   @override
-  DiscussionQuery build() {
+  FeedQuery build() {
     ref.watch(currentUserIdProvider);
-    return const DiscussionQuery();
+    return const FeedQuery();
   }
 
   void toggleTag(String tagId) => state = state.toggleTag(tagId);
   void setText(String text) => state = state.copyWith(text: text);
-  void setSort(DiscussionSort sort) => state = state.copyWith(sort: sort);
+  void setSort(FeedSort sort) => state = state.copyWith(sort: sort);
   void clear() => state = state.cleared();
 }
 
 final discussionQueryProvider =
-    NotifierProvider<DiscussionQueryNotifier, DiscussionQuery>(
-        DiscussionQueryNotifier.new);
+    NotifierProvider<FeedQueryNotifier, FeedQuery>(FeedQueryNotifier.new);
+
+/// News and Parent Hub each keep their own filters.
+final postQueryProvider =
+    NotifierProvider.family<FeedQueryNotifier, FeedQuery, PublishedKind>(
+  (_) => FeedQueryNotifier(),
+);
+
+// ── News & Parent Hub ────────────────────────────────────────────────────────
+
+class PublishedPostList extends AsyncNotifier<List<PublishedPost>> {
+  PublishedPostList(this.kind);
+
+  final PublishedKind kind;
+
+  @override
+  Future<List<PublishedPost>> build() async {
+    ref.watch(currentUserIdProvider);
+    final query = ref.watch(postQueryProvider(kind));
+    final membership = await ref.watch(myMembershipProvider.future);
+    if (membership == null) return const [];
+    return ref
+        .watch(communityRepositoryProvider)
+        .searchPosts(kind, membership.communityId, query);
+  }
+
+  Future<void> refresh() async {
+    state = await AsyncValue.guard(build);
+  }
+
+  Future<void> add({
+    required String communityId,
+    required String title,
+    required String body,
+    String? linkUrl,
+    List<String> tagIds = const [],
+  }) async {
+    _checkTagCount(tagIds);
+    final created = await ref.read(communityRepositoryProvider).createPost(
+          kind: kind,
+          communityId: communityId,
+          title: title,
+          body: body,
+          linkUrl: linkUrl,
+          tagIds: tagIds,
+        );
+    if (ref.read(postQueryProvider(kind)).newPostGoesFirst) {
+      state = AsyncData([created, ...state.value ?? const []]);
+    } else {
+      await refresh();
+    }
+  }
+
+  Future<void> edit({
+    required String postId,
+    required String title,
+    required String body,
+    String? linkUrl,
+  }) async {
+    final updated = await ref.read(communityRepositoryProvider).updatePost(
+          kind: kind,
+          postId: postId,
+          title: title,
+          body: body,
+          linkUrl: linkUrl,
+        );
+    if (ref.read(postQueryProvider(kind)).isFiltered) {
+      // The edit may change whether the post matches the search.
+      await refresh();
+    } else {
+      _replace(postId, (_) => updated);
+    }
+    ref.invalidate(postByIdProvider((kind, postId)));
+  }
+
+  Future<void> updateTags({
+    required String postId,
+    required List<String> tagIds,
+  }) async {
+    _checkTagCount(tagIds);
+    await ref
+        .read(communityRepositoryProvider)
+        .setPostTags(kind: kind, postId: postId, tagIds: tagIds);
+    if (ref.read(postQueryProvider(kind)).tagIds.isNotEmpty) {
+      await refresh();
+    } else {
+      _replace(postId, (p) => p.copyWith(tagIds: tagIds));
+    }
+    ref.invalidate(postByIdProvider((kind, postId)));
+  }
+
+  Future<void> remove(String postId) async {
+    await ref.read(communityRepositoryProvider).deletePost(kind, postId);
+    state = AsyncData(
+      (state.value ?? const []).where((p) => p.id != postId).toList(),
+    );
+  }
+
+  /// Applies the tap optimistically, then reconciles with the server's
+  /// tally; rolls back and rethrows if the vote fails.
+  Future<void> vote(PublishedPost post, int direction) async {
+    final before = post.votes;
+    final next = before.tap(direction);
+    _replace(post.id, (p) => p.copyWith(votes: next));
+    try {
+      final saved = await ref.read(communityRepositoryProvider).castVote(
+            target: kind.voteTarget,
+            itemId: post.id,
+            value: next.myVote,
+          );
+      _replace(post.id, (p) => p.copyWith(votes: saved));
+    } catch (_) {
+      _replace(post.id, (p) => p.copyWith(votes: before));
+      rethrow;
+    } finally {
+      ref.invalidate(postByIdProvider((kind, post.id)));
+    }
+  }
+
+  void _replace(String postId, PublishedPost Function(PublishedPost) change) {
+    final current = state.value;
+    if (current == null) return;
+    state = AsyncData([
+      for (final p in current)
+        if (p.id == postId) change(p) else p,
+    ]);
+  }
+}
+
+final publishedPostListProvider = AsyncNotifierProvider.family<
+    PublishedPostList, List<PublishedPost>, PublishedKind>(
+  PublishedPostList.new,
+);
+
+/// One post for its detail page: taken from the loaded list when present,
+/// otherwise fetched (e.g. opened by link or hidden by the current filter).
+final postByIdProvider =
+    FutureProvider.family<PublishedPost?, (PublishedKind, String)>(
+        (ref, key) async {
+  ref.watch(currentUserIdProvider);
+  final (kind, postId) = key;
+  final listed = ref
+      .read(publishedPostListProvider(kind))
+      .value
+      ?.where((p) => p.id == postId)
+      .firstOrNull;
+  if (listed != null) return listed;
+  return ref.watch(communityRepositoryProvider).fetchPost(kind, postId);
+});
+
+/// Up to 5 discussions related to a news post (shared tags, then text).
+final relatedDiscussionsProvider =
+    FutureProvider.family<List<CommunityDiscussion>, String>((ref, newsId) {
+  ref.watch(currentUserIdProvider);
+  return ref
+      .watch(communityRepositoryProvider)
+      .fetchRelatedDiscussions(newsId);
+});
+
+// ── Discussions ──────────────────────────────────────────────────────────────
 
 class CommunityDiscussionList
     extends AsyncNotifier<List<CommunityDiscussion>> {
@@ -248,11 +406,7 @@ class CommunityDiscussionList
     List<PendingImage> images = const [],
     List<String> tagIds = const [],
   }) async {
-    if (tagIds.length > TopicTag.maxPerPost) {
-      throw ArgumentError(
-        'At most ${TopicTag.maxPerPost} tags can be chosen.',
-      );
-    }
+    _checkTagCount(tagIds);
     final repo = ref.read(communityRepositoryProvider);
     final imageUrls = await _uploadImages(repo, images);
     final created = await repo.createDiscussion(
@@ -264,11 +418,7 @@ class CommunityDiscussionList
     );
     // A new post belongs on top when nothing narrows the list and the sort
     // favours recent posts; otherwise let the server decide where it goes.
-    final query = ref.read(discussionQueryProvider);
-    final goesFirst = !query.isFiltered &&
-        (query.sort == DiscussionSort.newest ||
-            query.sort == DiscussionSort.recentActivity);
-    if (goesFirst) {
+    if (ref.read(discussionQueryProvider).newPostGoesFirst) {
       state = AsyncData([created, ...state.value ?? const []]);
     } else {
       await refresh();
@@ -279,39 +429,28 @@ class CommunityDiscussionList
     required String discussionId,
     required List<String> tagIds,
   }) async {
-    if (tagIds.length > TopicTag.maxPerPost) {
-      throw ArgumentError(
-        'At most ${TopicTag.maxPerPost} tags can be chosen.',
-      );
-    }
+    _checkTagCount(tagIds);
     await ref
         .read(communityRepositoryProvider)
         .setDiscussionTags(discussionId: discussionId, tagIds: tagIds);
+    ref.invalidate(discussionByIdProvider(discussionId));
     if (ref.read(discussionQueryProvider).tagIds.isNotEmpty) {
       // The post may no longer match the active tag filter.
       await refresh();
       return;
     }
-    state = AsyncData([
-      for (final d in state.value ?? const <CommunityDiscussion>[])
-        if (d.id == discussionId) d.copyWith(tagIds: tagIds) else d,
-    ]);
+    _replace(discussionId, (d) => d.copyWith(tagIds: tagIds));
   }
 
   /// Reflects a new reply in the list without a refetch (or reorder).
   void noteReplyAdded(String discussionId) {
-    final current = state.value;
-    if (current == null) return;
-    state = AsyncData([
-      for (final d in current)
-        if (d.id == discussionId)
-          d.copyWith(
-            replyCount: (d.replyCount ?? 0) + 1,
-            lastActivityAt: DateTime.now(),
-          )
-        else
-          d,
-    ]);
+    _replace(
+      discussionId,
+      (d) => d.copyWith(
+        replyCount: (d.replyCount ?? 0) + 1,
+        lastActivityAt: DateTime.now(),
+      ),
+    );
   }
 
   Future<void> edit({
@@ -323,10 +462,8 @@ class CommunityDiscussionList
         .read(communityRepositoryProvider)
         .updateDiscussion(
             discussionId: discussionId, title: title, body: body);
-    state = AsyncData([
-      for (final d in state.value ?? const <CommunityDiscussion>[])
-        if (d.id == discussionId) updated else d,
-    ]);
+    ref.invalidate(discussionByIdProvider(discussionId));
+    _replace(discussionId, (_) => updated);
   }
 
   Future<void> remove(String discussionId) async {
@@ -337,11 +474,58 @@ class CommunityDiscussionList
       (state.value ?? const []).where((d) => d.id != discussionId).toList(),
     );
   }
+
+  /// Optimistic up/down vote; rolls back and rethrows on failure.
+  Future<void> vote(CommunityDiscussion discussion, int direction) async {
+    final before = discussion.votes;
+    final next = before.tap(direction);
+    _replace(discussion.id, (d) => d.copyWith(votes: next));
+    try {
+      final saved = await ref.read(communityRepositoryProvider).castVote(
+            target: VoteTarget.discussion,
+            itemId: discussion.id,
+            value: next.myVote,
+          );
+      _replace(discussion.id, (d) => d.copyWith(votes: saved));
+    } catch (_) {
+      _replace(discussion.id, (d) => d.copyWith(votes: before));
+      rethrow;
+    } finally {
+      ref.invalidate(discussionByIdProvider(discussion.id));
+    }
+  }
+
+  void _replace(
+    String discussionId,
+    CommunityDiscussion Function(CommunityDiscussion) change,
+  ) {
+    final current = state.value;
+    if (current == null) return;
+    state = AsyncData([
+      for (final d in current)
+        if (d.id == discussionId) change(d) else d,
+    ]);
+  }
 }
 
 final communityDiscussionListProvider =
     AsyncNotifierProvider<CommunityDiscussionList,
         List<CommunityDiscussion>>(CommunityDiscussionList.new);
+
+/// One discussion for its detail page: from the loaded list when present,
+/// otherwise fetched (e.g. opened from a news post's related discussions).
+final discussionByIdProvider =
+    FutureProvider.family<CommunityDiscussion?, String>(
+        (ref, discussionId) async {
+  ref.watch(currentUserIdProvider);
+  final listed = ref
+      .read(communityDiscussionListProvider)
+      .value
+      ?.where((d) => d.id == discussionId)
+      .firstOrNull;
+  if (listed != null) return listed;
+  return ref.watch(communityRepositoryProvider).fetchDiscussion(discussionId);
+});
 
 /// Uploads [images] in parallel, keeping their order, before the post or
 /// reply that references them is written. Over the cap fails before anything
@@ -402,6 +586,40 @@ class DiscussionReplies extends AsyncNotifier<List<DiscussionReply>> {
     state = AsyncData(
       (state.value ?? const []).where((r) => r.id != replyId).toList(),
     );
+  }
+
+  /// Optimistically toggles "helpful"; rolls back and rethrows on failure.
+  Future<void> toggleHelpful(String replyId) async {
+    final before =
+        state.value?.where((r) => r.id == replyId).firstOrNull;
+    if (before == null) return;
+    _replace(replyId, (r) => r.toggledHelpful());
+    try {
+      final saved =
+          await ref.read(communityRepositoryProvider).toggleReplyHelpful(replyId);
+      _replace(
+        replyId,
+        (r) => r.copyWith(
+          helpfulCount: saved.helpfulCount,
+          markedHelpfulByMe: saved.markedByMe,
+        ),
+      );
+    } catch (_) {
+      _replace(replyId, (_) => before);
+      rethrow;
+    }
+  }
+
+  void _replace(
+    String replyId,
+    DiscussionReply Function(DiscussionReply) change,
+  ) {
+    final current = state.value;
+    if (current == null) return;
+    state = AsyncData([
+      for (final r in current)
+        if (r.id == replyId) change(r) else r,
+    ]);
   }
 }
 
@@ -484,32 +702,3 @@ final communityEventListProvider =
     AsyncNotifierProvider<CommunityEventList, List<CommunityEvent>>(
         CommunityEventList.new);
 
-// ── Parent Resources ────────────────────────────────────────────────────────
-
-final parentResourcesProvider =
-    FutureProvider<List<ParentResource>>((ref) {
-  ref.watch(currentUserIdProvider);
-  return ref.watch(communityRepositoryProvider).fetchParentResources();
-});
-
-class ResourceFilterNotifier extends Notifier<ResourceFilter> {
-  @override
-  ResourceFilter build() {
-    ref.watch(currentUserIdProvider);
-    return const ResourceFilter();
-  }
-
-  void toggleTag(String tagId) => state = state.toggleTag(tagId);
-  void setText(String text) => state = state.withText(text);
-  void clear() => state = const ResourceFilter();
-}
-
-final resourceFilterProvider =
-    NotifierProvider<ResourceFilterNotifier, ResourceFilter>(
-        ResourceFilterNotifier.new);
-
-final filteredParentResourcesProvider =
-    Provider<AsyncValue<List<ParentResource>>>((ref) {
-  final filter = ref.watch(resourceFilterProvider);
-  return ref.watch(parentResourcesProvider).whenData(filter.apply);
-});

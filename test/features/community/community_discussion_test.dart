@@ -109,4 +109,37 @@ void main() {
       );
     });
   });
+
+  group('reply helpful', () {
+    test('reads helpful_count and my own mark from my_votes', () {
+      final marked = DiscussionReply.fromJson({
+        ..._row(),
+        'helpful_count': 4,
+        'my_votes': [
+          {'user_id': 'u1'},
+        ],
+      });
+      expect(marked.helpfulCount, 4);
+      expect(marked.markedHelpfulByMe, isTrue);
+
+      final plain = DiscussionReply.fromJson(_row());
+      expect(plain.helpfulCount, 0);
+      expect(plain.markedHelpfulByMe, isFalse);
+    });
+
+    test('toggledHelpful flips the mark and adjusts the count', () {
+      final reply = DiscussionReply.fromJson({..._row(), 'helpful_count': 2});
+      final on = reply.toggledHelpful();
+      expect((on.helpfulCount, on.markedHelpfulByMe), (3, true));
+      final off = on.toggledHelpful();
+      expect((off.helpfulCount, off.markedHelpfulByMe), (2, false));
+    });
+
+    test('discussion reads votes', () {
+      final d = CommunityDiscussion.fromJson(
+          {..._row(), 'upvotes': 2, 'downvotes': 1, 'my_vote': 1});
+      expect(d.votes.score, 1);
+      expect(d.votes.myVote, 1);
+    });
+  });
 }

@@ -7,13 +7,13 @@ import '../domain/community.dart';
 import '../domain/community_discussion.dart';
 import '../domain/community_event.dart';
 import '../domain/community_membership.dart';
-import '../domain/community_news.dart';
 import '../domain/community_repository.dart';
 import '../domain/discussion_image.dart';
-import '../domain/discussion_query.dart';
-import '../domain/parent_resource.dart';
+import '../domain/feed_query.dart';
+import '../domain/published_post.dart';
 import '../domain/region.dart';
 import '../domain/topic_tag.dart';
+import '../domain/vote.dart';
 
 class SupabaseCommunityRepository implements CommunityRepository {
   SupabaseCommunityRepository(this._client);
@@ -133,13 +133,16 @@ class SupabaseCommunityRepository implements CommunityRepository {
 
   // ── Memberships ─────────────────────────────────────────────────────────
 
+  static const _membershipSelect = '*, family:families(name)';
+
   @override
   Future<CommunityMembership?> fetchMyMembership() async {
     try {
+      // Matches on the caller's family, so every adult in the family (not
+      // only the one who joined) sees the membership.
       final rows = await _client
-          .from('community_memberships')
-          .select('*, family:families(name)')
-          .eq('joined_by', _uid)
+          .rpc<List<dynamic>>('my_community_membership')
+          .select(_membershipSelect)
           .limit(1);
       if (rows.isEmpty) return null;
       return CommunityMembership.fromJson(rows.first);
@@ -153,7 +156,7 @@ class SupabaseCommunityRepository implements CommunityRepository {
     try {
       final rows = await _client
           .from('community_memberships')
-          .select('*, family:families(name)')
+          .select(_membershipSelect)
           .eq('community_id', communityId)
           .order('joined_at');
       return rows.map(CommunityMembership.fromJson).toList();
@@ -182,15 +185,35 @@ class SupabaseCommunityRepository implements CommunityRepository {
     }
   }
 
+  // ── Community admin ─────────────────────────────────────────────────────
+
+  @override
+  Future<List<CommunityAdminCandidate>> fetchAdminCandidates(
+    String communityId,
+  ) async {
+    try {
+      final rows = await _client.rpc<List<dynamic>>(
+        'list_community_admin_candidates',
+        params: {'p_community_id': communityId},
+      );
+      return rows
+          .cast<Map<String, dynamic>>()
+          .map(CommunityAdminCandidate.fromJson)
+          .toList();
+    } catch (e) {
+      throw mapError(e);
+    }
+  }
+
   @override
   Future<CommunityMembership> setAdmin({
     required String membershipId,
-    required bool isAdmin,
+    String? userId,
   }) async {
     try {
       final row = await _client.rpc('set_community_admin', params: {
         'p_membership_id': membershipId,
-        'p_is_admin': isAdmin,
+        'p_user_id': userId,
       });
       return CommunityMembership.fromJson(row as Map<String, dynamic>);
     } catch (e) {
@@ -198,68 +221,141 @@ class SupabaseCommunityRepository implements CommunityRepository {
     }
   }
 
-  // ── News ────────────────────────────────────────────────────────────────
+  // ── News & Parent Hub resources ─────────────────────────────────────────
+
+  static String _postTable(PublishedKind kind) => switch (kind) {
+        PublishedKind.news => 'community_news',
+        PublishedKind.resource => 'parent_resources',
+      };
+
+  static String _postSearchRpc(PublishedKind kind) => switch (kind) {
+        PublishedKind.news => 'search_community_news',
+        PublishedKind.resource => 'search_parent_resources',
+      };
+
+  static String _postSelect(PublishedKind kind) => switch (kind) {
+        PublishedKind.news =>
+          '*, author:profiles!author_id(first_name, last_name), '
+              'tags:community_news_tags(tag_id), '
+              'my_votes:community_news_votes(value)',
+        PublishedKind.resource =>
+          '*, author:profiles!author_id(first_name, last_name), '
+              'tags:parent_resource_tags(tag_id), '
+              'my_votes:parent_resource_votes(value)',
+      };
 
   @override
-  Future<List<CommunityNewsItem>> fetchNews(String communityId) async {
+  Future<List<PublishedPost>> searchPosts(
+    PublishedKind kind,
+    String communityId,
+    FeedQuery query,
+  ) async {
     try {
-      final rows = await _client
-          .from('community_news')
-          .select('*, author:profiles!author_id(first_name, last_name)')
-          .eq('community_id', communityId)
-          .order('created_at', ascending: false);
-      return rows.map(CommunityNewsItem.fromJson).toList();
+      final rows = await _client.rpc<List<dynamic>>(
+        _postSearchRpc(kind),
+        params: query.toRpcParams(communityId),
+      );
+      return [
+        for (final row in rows.cast<Map<String, dynamic>>())
+          PublishedPost.fromJson(kind, row),
+      ];
     } catch (e) {
       throw mapError(e);
     }
   }
 
   @override
-  Future<CommunityNewsItem> createNews({
+  Future<PublishedPost?> fetchPost(PublishedKind kind, String postId) async {
+    try {
+      final row = await _client
+          .from(_postTable(kind))
+          .select(_postSelect(kind))
+          .eq('id', postId)
+          .maybeSingle();
+      return row == null ? null : PublishedPost.fromJson(kind, row);
+    } catch (e) {
+      throw mapError(e);
+    }
+  }
+
+  @override
+  Future<PublishedPost> createPost({
+    required PublishedKind kind,
     required String communityId,
     required String title,
     required String body,
+    String? linkUrl,
+    List<String> tagIds = const [],
   }) async {
     try {
       final row = await _client
-          .from('community_news')
-          .insert(CommunityNewsItem.toInsertJson(
-            communityId: communityId,
-            authorId: _uid,
-            title: title,
-            body: body,
-          ))
-          .select()
+          .from(_postTable(kind))
+          .insert({
+            ...PublishedPost.toWriteJson(
+              title: title,
+              body: body,
+              linkUrl: linkUrl,
+            ),
+            'community_id': communityId,
+            'author_id': _uid,
+          })
+          .select(_postSelect(kind))
           .single();
-      return CommunityNewsItem.fromJson(row);
+      final created = PublishedPost.fromJson(kind, row);
+      if (tagIds.isEmpty) return created;
+      await setPostTags(kind: kind, postId: created.id, tagIds: tagIds);
+      return created.copyWith(tagIds: tagIds);
     } catch (e) {
       throw mapError(e);
     }
   }
 
   @override
-  Future<CommunityNewsItem> updateNews({
-    required String newsId,
+  Future<PublishedPost> updatePost({
+    required PublishedKind kind,
+    required String postId,
     required String title,
     required String body,
+    String? linkUrl,
   }) async {
     try {
       final row = await _client
-          .from('community_news')
-          .update(CommunityNewsItem.toUpdateJson(title: title, body: body))
-          .eq('id', newsId)
-          .select()
+          .from(_postTable(kind))
+          .update(PublishedPost.toWriteJson(
+            title: title,
+            body: body,
+            linkUrl: linkUrl,
+          ))
+          .eq('id', postId)
+          .select(_postSelect(kind))
           .single();
-      return CommunityNewsItem.fromJson(row);
+      return PublishedPost.fromJson(kind, row);
     } catch (e) {
       throw mapError(e);
     }
   }
 
   @override
-  Future<void> deleteNews(String newsId) async {
+  Future<void> deletePost(PublishedKind kind, String postId) async {
     try {
-      await _client.from('community_news').delete().eq('id', newsId);
+      await _client.from(_postTable(kind)).delete().eq('id', postId);
+    } catch (e) {
+      throw mapError(e);
+    }
+  }
+
+  @override
+  Future<void> setPostTags({
+    required PublishedKind kind,
+    required String postId,
+    required List<String> tagIds,
+  }) async {
+    try {
+      await _client.rpc<void>('set_post_tags', params: {
+        'p_kind': kind.wireValue,
+        'p_post_id': postId,
+        'p_tag_ids': tagIds,
+      });
     } catch (e) {
       throw mapError(e);
     }
@@ -286,12 +382,46 @@ class SupabaseCommunityRepository implements CommunityRepository {
   @override
   Future<List<CommunityDiscussion>> searchDiscussions(
     String communityId,
-    DiscussionQuery query,
+    FeedQuery query,
   ) async {
     try {
       final rows = await _client.rpc<List<dynamic>>(
         'search_community_discussions',
         params: query.toRpcParams(communityId),
+      );
+      return rows
+          .cast<Map<String, dynamic>>()
+          .map(CommunityDiscussion.fromJson)
+          .toList();
+    } catch (e) {
+      throw mapError(e);
+    }
+  }
+
+  @override
+  Future<CommunityDiscussion?> fetchDiscussion(String discussionId) async {
+    try {
+      final row = await _client
+          .from('community_discussions')
+          .select('*, author:profiles!author_id(first_name, last_name), '
+              'tags:community_discussion_tags(tag_id), '
+              'my_votes:community_discussion_votes(value)')
+          .eq('id', discussionId)
+          .maybeSingle();
+      return row == null ? null : CommunityDiscussion.fromJson(row);
+    } catch (e) {
+      throw mapError(e);
+    }
+  }
+
+  @override
+  Future<List<CommunityDiscussion>> fetchRelatedDiscussions(
+    String newsId,
+  ) async {
+    try {
+      final rows = await _client.rpc<List<dynamic>>(
+        'related_discussions',
+        params: {'p_news_id': newsId, 'p_limit': 5},
       );
       return rows
           .cast<Map<String, dynamic>>()
@@ -411,7 +541,8 @@ class SupabaseCommunityRepository implements CommunityRepository {
     try {
       final rows = await _client
           .from('community_discussion_replies')
-          .select('*, author:profiles!author_id(first_name, last_name)')
+          .select('*, author:profiles!author_id(first_name, last_name), '
+              'my_votes:community_reply_votes(user_id)')
           .eq('discussion_id', discussionId)
           .order('created_at');
       return rows.map(DiscussionReply.fromJson).toList();
@@ -450,6 +581,45 @@ class SupabaseCommunityRepository implements CommunityRepository {
           .from('community_discussion_replies')
           .delete()
           .eq('id', replyId);
+    } catch (e) {
+      throw mapError(e);
+    }
+  }
+
+  // ── Votes ───────────────────────────────────────────────────────────────
+
+  @override
+  Future<VoteTally> castVote({
+    required VoteTarget target,
+    required String itemId,
+    required int value,
+  }) async {
+    try {
+      final rows = await _client.rpc<List<dynamic>>('cast_vote', params: {
+        'p_kind': target.wireValue,
+        'p_item_id': itemId,
+        'p_value': value,
+      });
+      return VoteTally.fromJson(rows.first as Map<String, dynamic>);
+    } catch (e) {
+      throw mapError(e);
+    }
+  }
+
+  @override
+  Future<({int helpfulCount, bool markedByMe})> toggleReplyHelpful(
+    String replyId,
+  ) async {
+    try {
+      final rows = await _client.rpc<List<dynamic>>(
+        'toggle_reply_helpful',
+        params: {'p_reply_id': replyId},
+      );
+      final row = rows.first as Map<String, dynamic>;
+      return (
+        helpfulCount: (row['helpful_count'] as num?)?.toInt() ?? 0,
+        markedByMe: row['liked_by_me'] as bool? ?? false,
+      );
     } catch (e) {
       throw mapError(e);
     }
@@ -532,21 +702,6 @@ class SupabaseCommunityRepository implements CommunityRepository {
   Future<void> deleteEvent(String eventId) async {
     try {
       await _client.from('community_events').delete().eq('id', eventId);
-    } catch (e) {
-      throw mapError(e);
-    }
-  }
-
-  // ── Parent Resources ───────────────────────────────────────────────────
-
-  @override
-  Future<List<ParentResource>> fetchParentResources() async {
-    try {
-      final rows = await _client
-          .from('parent_resources')
-          .select('*, tags:parent_resource_tags(tag_id)')
-          .order('sort_order');
-      return rows.map(ParentResource.fromJson).toList();
     } catch (e) {
       throw mapError(e);
     }

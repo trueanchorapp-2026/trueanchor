@@ -2,11 +2,11 @@ import 'community.dart';
 import 'community_discussion.dart';
 import 'community_event.dart';
 import 'community_membership.dart';
-import 'community_news.dart';
-import 'discussion_query.dart';
-import 'parent_resource.dart';
+import 'feed_query.dart';
+import 'published_post.dart';
 import 'region.dart';
 import 'topic_tag.dart';
+import 'vote.dart';
 
 abstract interface class CommunityRepository {
   // Regions
@@ -31,28 +31,51 @@ abstract interface class CommunityRepository {
   Future<void> deleteCommunity(String communityId);
 
   // Memberships
+  /// The caller's family membership (any adult in the family).
   Future<CommunityMembership?> fetchMyMembership();
   Future<List<CommunityMembership>> fetchMembers(String communityId);
   Future<CommunityMembership> joinCommunity(String communityId);
   Future<void> leaveCommunity();
+
+  // Community admin (regional/app admin only)
+  Future<List<CommunityAdminCandidate>> fetchAdminCandidates(
+    String communityId,
+  );
+
+  /// Makes [userId] the admin for [membershipId]'s family; null revokes.
   Future<CommunityMembership> setAdmin({
     required String membershipId,
-    required bool isAdmin,
+    String? userId,
   });
 
-  // News
-  Future<List<CommunityNewsItem>> fetchNews(String communityId);
-  Future<CommunityNewsItem> createNews({
+  // News & Parent Hub resources
+  Future<List<PublishedPost>> searchPosts(
+    PublishedKind kind,
+    String communityId,
+    FeedQuery query,
+  );
+  Future<PublishedPost?> fetchPost(PublishedKind kind, String postId);
+  Future<PublishedPost> createPost({
+    required PublishedKind kind,
     required String communityId,
     required String title,
     required String body,
+    String? linkUrl,
+    List<String> tagIds = const [],
   });
-  Future<CommunityNewsItem> updateNews({
-    required String newsId,
+  Future<PublishedPost> updatePost({
+    required PublishedKind kind,
+    required String postId,
     required String title,
     required String body,
+    String? linkUrl,
   });
-  Future<void> deleteNews(String newsId);
+  Future<void> deletePost(PublishedKind kind, String postId);
+  Future<void> setPostTags({
+    required PublishedKind kind,
+    required String postId,
+    required List<String> tagIds,
+  });
 
   // Topic tags
   Future<List<TopicTag>> fetchTopicTags();
@@ -60,8 +83,12 @@ abstract interface class CommunityRepository {
   // Discussions
   Future<List<CommunityDiscussion>> searchDiscussions(
     String communityId,
-    DiscussionQuery query,
+    FeedQuery query,
   );
+  Future<CommunityDiscussion?> fetchDiscussion(String discussionId);
+
+  /// Up to five discussions related to a news post (shared tags, then text).
+  Future<List<CommunityDiscussion>> fetchRelatedDiscussions(String newsId);
   Future<String> uploadDiscussionImage({
     required String fileName,
     required List<int> bytes,
@@ -93,6 +120,19 @@ abstract interface class CommunityRepository {
   });
   Future<void> deleteReply(String replyId);
 
+  // Votes
+  /// Sets the caller's vote (1, -1, or 0 to clear) and returns the new tally.
+  Future<VoteTally> castVote({
+    required VoteTarget target,
+    required String itemId,
+    required int value,
+  });
+
+  /// Toggles the caller's "helpful" mark on a reply.
+  Future<({int helpfulCount, bool markedByMe})> toggleReplyHelpful(
+    String replyId,
+  );
+
   // Events
   Future<List<CommunityEvent>> fetchEvents(String communityId);
   Future<CommunityEvent> createEvent({
@@ -112,7 +152,4 @@ abstract interface class CommunityRepository {
     DateTime? endsAt,
   });
   Future<void> deleteEvent(String eventId);
-
-  // Parent Resources
-  Future<List<ParentResource>> fetchParentResources();
 }
