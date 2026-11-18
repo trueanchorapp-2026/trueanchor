@@ -79,7 +79,7 @@ class SupabaseAuthRepository implements AuthRepository {
         OAuthProvider.google,
         // On web, return to the app's own origin (e.g. http://localhost:5000)
         // so session restoration and the router take over on redirect back.
-        redirectTo: kIsWeb ? Uri.base.origin : null,
+        redirectTo: kIsWeb ? Uri.base.origin : 'trueanchor://login-callback',
       );
     } catch (error) {
       throw mapError(error);
