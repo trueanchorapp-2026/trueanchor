@@ -4,6 +4,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:trueanchor/core/providers/supabase_providers.dart';
 import 'package:trueanchor/features/devotionals/application/devotional_providers.dart';
 import 'package:trueanchor/features/devotionals/domain/devotional.dart';
+import 'package:trueanchor/features/devotionals/domain/devotional_audience.dart';
 import 'package:trueanchor/features/devotionals/domain/devotional_repository.dart';
 
 class MockDevotionalRepository extends Mock implements DevotionalRepository {}
@@ -27,23 +28,36 @@ void main() {
 
   setUpAll(() {
     registerFallbackValue(DateTime(2026));
+    registerFallbackValue(DevotionalAudience.youth);
   });
 
   setUp(() {
     repository = MockDevotionalRepository();
   });
 
-  ProviderContainer containerWith({String? userId = 'user-1'}) =>
+  void stubFetch(Devotional? result) {
+    when(
+      () => repository.fetchForDate(
+        any(),
+        audience: any(named: 'audience'),
+      ),
+    ).thenAnswer((_) async => result);
+  }
+
+  ProviderContainer containerWith({
+    String? userId = 'user-1',
+    DevotionalAudience audience = DevotionalAudience.youth,
+  }) =>
       ProviderContainer.test(
         overrides: [
           currentUserIdProvider.overrideWithValue(userId),
+          devotionalAudienceProvider.overrideWithValue(audience),
           devotionalRepositoryProvider.overrideWithValue(repository),
         ],
       );
 
   test('returns the devotional the repository resolves for today', () async {
-    when(() => repository.fetchForDate(any()))
-        .thenAnswer((_) async => _devotional());
+    stubFetch(_devotional());
 
     final container = containerWith();
 
@@ -57,8 +71,7 @@ void main() {
     // The repository resolves the fallback, not the provider: a row dated
     // before today is a perfectly valid result and must not be filtered out.
     // The page tells the two apart with isForToday.
-    when(() => repository.fetchForDate(any()))
-        .thenAnswer((_) async => _devotional(publishOn: DateTime(2026, 7, 28)));
+    stubFetch(_devotional(publishOn: DateTime(2026, 7, 28)));
 
     final container = containerWith();
     final devotional = await container.read(todaysDevotionalProvider.future);
@@ -68,7 +81,7 @@ void main() {
   });
 
   test('returns null on an empty table rather than throwing', () async {
-    when(() => repository.fetchForDate(any())).thenAnswer((_) async => null);
+    stubFetch(null);
 
     final container = containerWith();
 
@@ -78,15 +91,17 @@ void main() {
   test('asks for the local calendar date, not a UTC one', () async {
     // A youth in California should get their own day. Any drift here shows up
     // as the wrong devotional near midnight.
-    when(() => repository.fetchForDate(any()))
-        .thenAnswer((_) async => _devotional());
+    stubFetch(_devotional());
 
     final container = containerWith();
     await container.read(todaysDevotionalProvider.future);
 
-    final requested =
-        verify(() => repository.fetchForDate(captureAny())).captured.single
-            as DateTime;
+    final requested = verify(
+      () => repository.fetchForDate(
+        captureAny(),
+        audience: any(named: 'audience'),
+      ),
+    ).captured.single as DateTime;
     final now = DateTime.now();
 
     expect(requested.isUtc, isFalse);
@@ -98,13 +113,31 @@ void main() {
   test('re-reads once a user is signed in', () async {
     // Devotionals are global, but `devotionals_select` is still gated on
     // `to authenticated` — the fetch has to re-run when the session appears.
-    when(() => repository.fetchForDate(any()))
-        .thenAnswer((_) async => _devotional());
+    stubFetch(_devotional());
 
     final container = containerWith(userId: null);
     await container.read(todaysDevotionalProvider.future);
 
     expect(container.read(todaysDevotionalProvider).value, isNotNull);
-    verify(() => repository.fetchForDate(any())).called(1);
+    verify(
+      () => repository.fetchForDate(
+        any(),
+        audience: any(named: 'audience'),
+      ),
+    ).called(1);
+  });
+
+  test("passes the reader's audience through to the repository", () async {
+    stubFetch(_devotional());
+
+    final container = containerWith(audience: DevotionalAudience.adult);
+    await container.read(todaysDevotionalProvider.future);
+
+    verify(
+      () => repository.fetchForDate(
+        any(),
+        audience: DevotionalAudience.adult,
+      ),
+    ).called(1);
   });
 }

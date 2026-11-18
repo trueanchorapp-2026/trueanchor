@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trueanchor/features/devotionals/domain/devotional.dart';
+import 'package:trueanchor/features/devotionals/domain/devotional_audience.dart';
 
 Map<String, dynamic> _json({
   String publishOn = '2026-08-01',
@@ -105,6 +106,77 @@ void main() {
 
       expect(devotional.isForToday(DateTime(2026, 9, 1)), isFalse);
       expect(devotional.isForToday(DateTime(2025, 8, 1)), isFalse);
+    });
+  });
+
+  group('structured (weekly) rows', () {
+    Map<String, dynamic> structured() => {
+          ..._json(questions: null, activity: null),
+          'body': null,
+          'audience': 'adult',
+          'day_number': 2,
+          'theme': {
+            'id': 'theme-1',
+            'audience': 'adult',
+            'title': 'Courage',
+            'starts_on': '2026-11-23',
+          },
+          'deeper_reference': 'Acts 5:17-32',
+          'deeper_text': 'Then the high priest...',
+          'deeper_translation': 'ESV',
+          'upward_body': 'Courage looks first to God.',
+          'upward_questions': ['Whose voice first?'],
+          'inward_questions': ['Where is the pull?', 'What would it look like?'],
+          'outward_body': 'Obedience shows up in real choices.',
+          'outward_prompt': 'Legacy prompt',
+          'self_application_questions': ['One', 'Two', 'Three'],
+          'love_in_action': 'Choose one small act.',
+          'love_in_action_questions': ['What step?'],
+        };
+
+    test('parses sections, audience, theme and day number', () {
+      final d = Devotional.fromJson(structured());
+
+      expect(d.isStructured, isTrue);
+      expect(d.body, isNull);
+      expect(d.audience, DevotionalAudience.adult);
+      expect(d.dayNumber, 2);
+      expect(d.theme?.title, 'Courage');
+      expect(d.theme?.startsOn, DateTime(2026, 11, 23));
+      expect(d.themeLabel, 'Courage · Day 2');
+      expect(d.upwardText, 'Courage looks first to God.');
+      expect(d.selfApplicationQuestions, hasLength(3));
+      expect(d.loveInActionQuestions, ['What step?']);
+    });
+
+    test('inward prompts prefer the structured questions', () {
+      final d = Devotional.fromJson(structured());
+      expect(d.inwardPrompts, ['Where is the pull?', 'What would it look like?']);
+    });
+
+    test('outward text prefers outward_body over the legacy prompt', () {
+      expect(Devotional.fromJson(structured()).outwardText,
+          'Obedience shows up in real choices.');
+    });
+
+    test('the Go Deeper label uses its own translation', () {
+      expect(Devotional.fromJson(structured()).deeperAttribution,
+          'Acts 5:17-32 (ESV)');
+    });
+  });
+
+  group('legacy rows', () {
+    test('default to youth, are not structured, and keep their fallbacks', () {
+      final d = Devotional.fromJson(_json());
+
+      expect(d.audience, DevotionalAudience.youth);
+      expect(d.isStructured, isFalse);
+      expect(d.theme, isNull);
+      expect(d.themeLabel, isNull);
+      expect(d.upwardText, 'First paragraph.\n\nSecond paragraph.');
+      expect(d.inwardPrompts, ['First?', 'Second?']);
+      expect(d.outwardText, 'Write one sentence.');
+      expect(d.deeperAttribution, isNull);
     });
   });
 

@@ -1,3 +1,5 @@
+import '../../devotionals/domain/devotional_audience.dart';
+
 /// Mirrors the `public.user_role` Postgres enum.
 ///
 /// [wire] must stay byte-identical to the SQL enum labels — it is what gets
@@ -43,6 +45,14 @@ enum UserRole {
   /// `devotionals_insert` — the platform role, not a church one. There is no
   /// in-app authoring surface yet; content arrives through the seed script.
   bool get canAuthorDevotionals => this == UserRole.appAdmin;
+
+  /// Which devotional track this role reads. Youth pastors read the youth
+  /// track because that is what their youth are reading; every other adult
+  /// prefers adult content and falls back to youth content when none exists.
+  DevotionalAudience get devotionalAudience =>
+      this == UserRole.youth || this == UserRole.youthPastor
+          ? DevotionalAudience.youth
+          : DevotionalAudience.adult;
 
   /// Who keeps a daily progress record. Mirrors `progress_upsert_own`: church
   /// staff read the same devotional as everyone else but have no devotional
